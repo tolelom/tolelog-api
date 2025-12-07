@@ -1,34 +1,25 @@
 package handler
 
 import (
-	"os"
-	"strconv"
-	"time"
 	"tolelom_api/internal/model"
+	"tolelom_api/internal/service"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gofiber/fiber/v2"
 )
 
-type UserHandler struct{}
+type UserHandler struct {
+	authService *service.AuthService
+}
 
 func NewUserHandler() *UserHandler {
-	return &UserHandler{}
-}
-
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type RegisterRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	return &UserHandler{
+		authService: service.NewAuthService(),
+	}
 }
 
 // 회원가입
 func (h *UserHandler) Register(c *fiber.Ctx) error {
-	var req RegisterRequest
+	var req model.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status": "error",
@@ -43,34 +34,25 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	// 중복 확인
-	var existingUser model.User
-	if err := model.DB.Where("username = ?", req.Username).First(&existingUser).Error; err == nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+	// 비밀번호 길이 검사 (8자 이상)
+	if len(req.Password) < 8 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status": "error",
-			"error":  "이미 존재하는 사용자명입니다",
+			"error":  "비밀번호는 8자 이상이어야 합니다",
 		})
 	}
 
-	// 새 사용자 생성
-	user := model.User{
-		Username: req.Username,
-		Password: req.Password,
-	}
-
-	if err := model.DB.Create(&user).Error; err != nil {
+	user, token, err := h.authService.RegisterUser(&req)
+	if err != nil {
+		if err.Error() == "user already exists" {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"status": "error",
+				"error":  "이미 존재하는 사용자명입니다",
+			})
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status": "error",
 			"error":  "사용자 생성에 실패했습니다",
-		})
-	}
-
-	// JWT 토큰 생성
-	token, err := generateToken(user.ID)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error",
-			"error":  "토큰 생성에 실패했습니다",
 		})
 	}
 
@@ -86,7 +68,7 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 
 // 로그인
 func (h *UserHandler) Login(c *fiber.Ctx) error {
-	var req LoginRequest
+	var req model.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status": "error",
@@ -101,29 +83,11 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// 사용자 조회
-	var user model.User
-	if err := model.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error",
-			"error":  "사용자명 또는 비밀번호가 잘못되었습니다",
-		})
-	}
-
-	// 비밀번호 확인 (추후 bcrypt로 변경 권장)
-	if user.Password != req.Password {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error",
-			"error":  "사용자명 또는 비밀번호가 잘못되었습니다",
-		})
-	}
-
-	// JWT 토큰 생성
-	token, err := generateToken(user.ID)
+	user, token, err := h.authService.AuthenticateUser(&req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status": "error",
-			"error":  "토큰 생성에 실패했습니다",
+			"error":  "사용자명 또는 비밀번호가 잘못되었습니다",
 		})
 	}
 
@@ -135,20 +99,4 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 			"user_id":  user.ID,
 		},
 	})
-}
-
-// JWT 토큰 생성 헬퍼 함수
-func generateToken(userID uint) (string, error) {
-	secretKey := os.Getenv("JWT_SECRET")
-	if secretKey == "" {
-		secretKey = "your-secret-key"
-	}
-
-	claims := jwt.RegisteredClaims{
-		Subject:   strconv.FormatUint(uint64(userID), 10),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secretKey))
 }
