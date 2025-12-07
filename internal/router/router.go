@@ -19,7 +19,7 @@ func Setup(app *fiber.App) {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	authHandler := handler.NewAuthHandler()
+	userHandler := handler.NewUserHandler()
 	postHandler := handler.NewPostHandler()
 
 	app.Get("/health", handler.HealthHandler)
@@ -27,8 +27,8 @@ func Setup(app *fiber.App) {
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	// Auth routes
-	app.Post("/login", authHandler.Login)
-	app.Post("/register", authHandler.Register)
+	app.Post("/login", userHandler.Login)
+	app.Post("/register", userHandler.Register)
 
 	// Post routes
 	app.Get("/posts", postHandler.GetPublicPosts)                               // 공개 글 목록
