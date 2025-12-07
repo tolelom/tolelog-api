@@ -30,7 +30,7 @@ type PostResponse struct {
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	UserID    uint      `json:"user_id"`
-	Username  string    `json:"username"`
+	Author    string    `json:"author"`
 	IsPublic  bool      `json:"is_public"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -40,7 +40,7 @@ type PostListResponse struct {
 	ID        uint      `json:"id"`
 	Title     string    `json:"title"`
 	UserID    uint      `json:"user_id"`
-	Username  string    `json:"username"`
+	Author    string    `json:"author"`
 	IsPublic  bool      `json:"is_public"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -52,7 +52,7 @@ func (p *Post) ToResponse() PostResponse {
 		Title:     p.Title,
 		Content:   p.Content,
 		UserID:    p.UserID,
-		Username:  p.User.Username,
+		Author:    p.User.Username,
 		IsPublic:  p.IsPublic,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
@@ -64,7 +64,7 @@ func (p *Post) ToListResponse() PostListResponse {
 		ID:        p.ID,
 		Title:     p.Title,
 		UserID:    p.UserID,
-		Username:  p.User.Username,
+		Author:    p.User.Username,
 		IsPublic:  p.IsPublic,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
