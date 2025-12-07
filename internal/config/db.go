@@ -32,12 +32,12 @@ func InitDataBase(cfg *Config) error {
 	}
 
 	if err := sqlDB.Ping(); err != nil {
-		log.Printf("DB 핑 실패: %v", err)
+		log.Printf("DB 핀 실패: %v", err)
 	}
 
 	log.Println("Database 연결 성공")
 
-	if err := DB.AutoMigrate(&model.User{}); err != nil {
+	if err := DB.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
 		log.Printf("자동 마이그레이션 실패: %v", err)
 		return err
 	}
