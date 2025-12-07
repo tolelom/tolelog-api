@@ -1,13 +1,11 @@
 package middleware
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func AuthMiddleware() fiber.Handler {
