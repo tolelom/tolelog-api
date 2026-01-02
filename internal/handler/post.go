@@ -40,7 +40,7 @@ func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 	var req model.CreatePostRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "요청 형식이 잠못되었습니다",
+			"error": "요청 형식이 잘못되었습니다",
 		})
 	}
 
@@ -78,7 +78,7 @@ func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "잠못된 ID입니다",
+			"error": "잘못된 ID입니다",
 		})
 	}
 
@@ -163,7 +163,7 @@ func (ph *PostHandler) GetUserPosts(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "잠못된 사용자 ID입니다",
+			"error": "잘못된 사용자 ID입니다",
 		})
 	}
 
@@ -224,7 +224,7 @@ func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "잠못된 ID입니다",
+			"error": "잘못된 ID입니다",
 		})
 	}
 
@@ -245,7 +245,7 @@ func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
 	var req model.UpdatePostRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "요청 형식이 잠못되었습니다",
+			"error": "요청 형식이 잘못되었습니다",
 		})
 	}
 
@@ -289,7 +289,7 @@ func (ph *PostHandler) DeletePost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "잠못된 ID입니다",
+			"error": "잘못된 ID입니다",
 		})
 	}
 
