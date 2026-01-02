@@ -11,9 +11,9 @@ type PostService struct {
 	db *gorm.DB
 }
 
-func NewPostService() *PostService {
+func NewPostService(db *gorm.DB) *PostService {
 	return &PostService{
-		db: model.DB,
+		db: db,
 	}
 }
 

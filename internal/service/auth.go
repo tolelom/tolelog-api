@@ -14,8 +14,8 @@ type AuthService struct {
 	db *gorm.DB
 }
 
-func NewAuthService() *AuthService {
-	return &AuthService{db: model.DB}
+func NewAuthService(db *gorm.DB) *AuthService {
+	return &AuthService{db: db}
 }
 
 func (s *AuthService) RegisterUser(req *model.RegisterRequest) (*model.User, string, error) {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/service"
 
@@ -12,9 +13,9 @@ type PostHandler struct {
 	service *service.PostService
 }
 
-func NewPostHandler() *PostHandler {
+func NewPostHandler(cfg *config.Config) *PostHandler {
 	return &PostHandler{
-		service: service.NewPostService(),
+		service: service.NewPostService(cfg.DB),
 	}
 }
 

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/service"
 
@@ -13,10 +14,10 @@ type AuthHandler struct {
 	authService *service.AuthService
 }
 
-func NewAuthHandler() *AuthHandler {
+func NewAuthHandler(cfg *config.Config) *AuthHandler {
 	return &AuthHandler{
 		validate:    validator.New(),
-		authService: service.NewAuthService(),
+		authService: service.NewAuthService(cfg.DB),
 	}
 }
 

@@ -33,7 +33,7 @@ func main() {
 			})
 		},
 	})
-	router.Setup(app)
+	router.Setup(app, cfg)
 
 	if err := app.Listen(":" + cfg.Port); err != nil {
 		log.Fatalf("서버 시작에 실패했습니다: %v", err)
