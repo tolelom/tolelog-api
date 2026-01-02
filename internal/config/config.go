@@ -67,7 +67,7 @@ func (c *Config) InitDataBase() error {
 
 	// DB Migration
 	if err := database.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
-		return fmt.Errorf("자동 마이그레이션 실패: %w", err)
+		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
 	}
 
 	log.Println("자동 마이그레이션 완료")
