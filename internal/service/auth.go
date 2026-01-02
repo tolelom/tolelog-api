@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"time"
-	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/utils"
 
@@ -16,7 +15,7 @@ type AuthService struct {
 }
 
 func NewAuthService() *AuthService {
-	return &AuthService{db: config.GetDB()}
+	return &AuthService{db: model.DB}
 }
 
 func (s *AuthService) RegisterUser(req *model.RegisterRequest) (*model.User, string, error) {

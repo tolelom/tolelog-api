@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
 
 	"gorm.io/gorm"
@@ -14,7 +13,7 @@ type PostService struct {
 
 func NewPostService() *PostService {
 	return &PostService{
-		db: config.GetDB(),
+		db: model.DB,
 	}
 }
 

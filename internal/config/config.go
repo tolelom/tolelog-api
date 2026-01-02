@@ -23,9 +23,9 @@ type Config struct {
 	DB         *gorm.DB
 }
 
-func LoadConfig() *Config {
+func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Println(".env 파일을 찾을 수 없습니다.")
+		log.Println(".env 파일을 찾을 수 없습니다. 기본 값을 사용합니다.")
 	}
 
 	return &Config{
@@ -36,7 +36,7 @@ func LoadConfig() *Config {
 		DBName:     getEnv("DB_NAME", "blog"),
 		JWTSecret:  getEnv("JWT_SECRET", "jwt"),
 		Port:       getEnv("PORT", "80"),
-	}
+	}, nil
 }
 
 func (c *Config) InitDataBase() error {
@@ -49,25 +49,26 @@ func (c *Config) InitDataBase() error {
 	})
 	if err != nil {
 
-		return fmt.Errorf("MySQL 연결에 실패했습니다: %v", err)
+		return fmt.Errorf("MySQL 연결에 실패했습니다: %w", err)
 	}
 
-	// model.DB에도 할당
+	c.DB = database
 	model.SetDB(database)
 
 	sqlDB, err := database.DB()
 	if err != nil {
-		return fmt.Errorf("DB instance에 연결 실패했습니다: ", err)
+		return fmt.Errorf("DB instance에 연결 실패했습니다: %w", err)
 	}
 
+	// DB Ping 테스트
 	if err := sqlDB.Ping(); err != nil {
-		return fmt.Errorf("DB 핀 실패: %v", err)
+		return fmt.Errorf("DB ping 실패: %w", err)
 	}
-
 	log.Println("Database 연결 성공")
 
+	// DB Migration
 	if err := database.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
-		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
+		return fmt.Errorf("자동 마이그레이션 실패: %w", err)
 	}
 
 	log.Println("자동 마이그레이션 완료")

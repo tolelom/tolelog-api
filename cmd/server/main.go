@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if err := cfg.InitDataBase(); err != nil {
 		log.Fatalf("데이터 베이스 연결에 실패했습니다: %v", err)
