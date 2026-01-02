@@ -48,7 +48,8 @@ func (c *Config) InitDataBase() error {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("MySQL 연결에 실패했습니다: %v", err)
+
+		return fmt.Errorf("MySQL 연결에 실패했습니다: %v", err)
 	}
 
 	// model.DB에도 할당
@@ -56,18 +57,17 @@ func (c *Config) InitDataBase() error {
 
 	sqlDB, err := database.DB()
 	if err != nil {
-		log.Fatal("DB instance에 연결 실패했습니다: ", err)
+		return fmt.Errorf("DB instance에 연결 실패했습니다: ", err)
 	}
 
 	if err := sqlDB.Ping(); err != nil {
-		log.Printf("DB 핀 실패: %v", err)
+		return fmt.Errorf("DB 핀 실패: %v", err)
 	}
 
 	log.Println("Database 연결 성공")
 
 	if err := database.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
-		log.Printf("자동 마이그레이션 실패: %v", err)
-		return err
+		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
 	}
 
 	log.Println("자동 마이그레이션 완료")
@@ -81,7 +81,3 @@ func getEnv(key, defaultValue string) string {
 	}
 	return defaultValue
 }
-
-//func GetDB() *gorm.DB {
-//	return db
-//}
