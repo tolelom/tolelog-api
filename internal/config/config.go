@@ -1,10 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"tolelom_api/internal/model"
 
 	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type Config struct {
@@ -15,6 +20,7 @@ type Config struct {
 	DBName     string
 	JWTSecret  string
 	Port       string
+	DB         *gorm.DB
 }
 
 func LoadConfig() *Config {
@@ -33,9 +39,49 @@ func LoadConfig() *Config {
 	}
 }
 
+func (c *Config) InitDataBase() error {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName,
+	)
+
+	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("MySQL 연결에 실패했습니다: %v", err)
+	}
+
+	// model.DB에도 할당
+	model.SetDB(database)
+
+	sqlDB, err := database.DB()
+	if err != nil {
+		log.Fatal("DB instance에 연결 실패했습니다: ", err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		log.Printf("DB 핀 실패: %v", err)
+	}
+
+	log.Println("Database 연결 성공")
+
+	if err := database.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
+		log.Printf("자동 마이그레이션 실패: %v", err)
+		return err
+	}
+
+	log.Println("자동 마이그레이션 완료")
+
+	return nil
+}
+
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue
 }
+
+//func GetDB() *gorm.DB {
+//	return db
+//}

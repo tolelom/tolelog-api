@@ -13,8 +13,8 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 
-	if err := config.InitDataBase(cfg); err != nil {
-		log.Fatalf("Database initialization failed: %v", err)
+	if err := cfg.InitDataBase(); err != nil {
+		log.Fatalf("데이터 베이스 연결에 실패했습니다: %v", err)
 	}
 
 	app := fiber.New(fiber.Config{
@@ -30,12 +30,9 @@ func main() {
 			})
 		},
 	})
-
 	router.Setup(app)
 
-	addr := ":" + cfg.Port
-	log.Printf("Server listening on %s", addr)
-	if err := app.Listen(addr); err != nil {
-		log.Fatalf("Fiber server failed to start: %v", err)
+	if err := app.Listen(":" + cfg.Port); err != nil {
+		log.Fatalf("서버 시작에 실패했습니다: %v", err)
 	}
 }
