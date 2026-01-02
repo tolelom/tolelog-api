@@ -48,7 +48,6 @@ func (c *Config) InitDataBase() error {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-
 		return fmt.Errorf("MySQL 연결에 실패했습니다: %w", err)
 	}
 
