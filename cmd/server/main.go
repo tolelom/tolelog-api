@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"tolelom_api/internal/config"
+	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/router"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,17 +22,7 @@ func main() {
 	}
 
 	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			code := fiber.StatusInternalServerError
-			if e, ok := err.(*fiber.Error); ok {
-				code = e.Code
-			}
-			return c.Status(code).JSON(fiber.Map{
-				"status":  "error",
-				"message": err.Error(),
-				"data":    nil,
-			})
-		},
+		ErrorHandler: middleware.ErrorHandler,
 	})
 	router.Setup(app, cfg)
 
