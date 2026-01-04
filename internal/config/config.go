@@ -52,7 +52,6 @@ func (c *Config) InitDataBase() error {
 	}
 
 	c.DB = database
-	model.SetDB(database)
 
 	sqlDB, err := database.DB()
 	if err != nil {

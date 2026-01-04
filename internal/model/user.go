@@ -3,11 +3,11 @@ package model
 import "time"
 
 type User struct {
-	ID        uint   `gorm:"primaryKey;autoIncrement"`
-	Username  string `gorm:"size:100;uniqueIndex;not null" validate:"required,min=2,max=20"`
-	Password  string `gorm:"not null" validate:"required,min=8"`
-	CreatedAt time.Time
-	LastLogin time.Time
+	ID           uint   `gorm:"primaryKey;autoIncrement"`
+	Username     string `gorm:"size:100;uniqueIndex;not null"`
+	PasswordHash string `gorm:"column:password;not null"`
+	CreatedAt    time.Time
+	LastLogin    time.Time
 }
 
 type LoginRequest struct {
@@ -21,11 +21,6 @@ type RegisterRequest struct {
 }
 
 type AuthResponse struct {
-	Status string   `json:"status"`
-	Data   AuthData `json:"data"`
-}
-
-type AuthData struct {
 	User  UserResponse `json:"user"`
 	Token string       `json:"token"`
 }

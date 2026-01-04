@@ -18,22 +18,33 @@ func NewPostService(db *gorm.DB) *PostService {
 }
 
 // CreatePost - 새 글 생성
-func (ps *PostService) CreatePost(post *model.Post) error {
+func (ps *PostService) CreatePost(post *model.Post) (*model.Post, error) {
 	if err := ps.db.Create(post).Error; err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+
+	// User 정보 로드
+	if err := ps.db.Preload("User").First(post, post.ID).Error; err != nil {
+		return nil, err
+	}
+
+	return post, nil
 }
 
 // GetPostByID - ID로 글 조회
-func (ps *PostService) GetPostByID(postID uint) (*model.Post, error) {
+func (ps *PostService) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	var post model.Post
 	if err := ps.db.Preload("User").First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("글을 찾을 수 없습니다")
+			return nil, ErrPostNotFound
 		}
 		return nil, err
 	}
+
+	if !post.IsPublic && (userID == nil || *userID != post.UserID) {
+		return nil, ErrUnauthorized
+	}
+
 	return &post, nil
 }
 
@@ -61,18 +72,24 @@ func (ps *PostService) GetPublicPosts(page, pageSize int) ([]model.Post, int64, 
 }
 
 // GetUserPosts - 특정 사용자의 글 목록 조회 (페이지네이션)
-func (ps *PostService) GetUserPosts(userID uint, page, pageSize int) ([]model.Post, int64, error) {
+func (ps *PostService) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
+	query := ps.db.Model(&model.Post{}).Where("user_id = ?", userID)
+
+	if currentUserID == nil || *currentUserID != userID {
+		query = query.Where("is_public = ?", true)
+	}
+
 	// 사용자의 전체 글 개수
-	if err := ps.db.Where("user_id = ?", userID).Model(&model.Post{}).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// 페이지네이션 적용
 	offset := (page - 1) * pageSize
-	if err := ps.db.Preload("User").Where("user_id = ?", userID).
+	if err := query.Preload("User").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -84,11 +101,45 @@ func (ps *PostService) GetUserPosts(userID uint, page, pageSize int) ([]model.Po
 }
 
 // UpdatePost - 글 수정
-func (ps *PostService) UpdatePost(post *model.Post) error {
-	if err := ps.db.Save(post).Error; err != nil {
-		return err
+func (ps *PostService) UpdatePost(postID uint, userID uint, req *model.UpdatePostRequest) (*model.Post, error) {
+	// 권한 확인
+	var post model.Post
+	if err := ps.db.First(&post, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPostNotFound
+		}
+		return nil, err
 	}
-	return nil
+
+	if post.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+
+	updates := map[string]interface{}{}
+
+	if req.Title != nil {
+		updates["title"] = *req.Title
+	}
+	if req.Content != nil {
+		updates["content"] = *req.Content
+	}
+	if req.IsPublic != nil {
+		updates["is_public"] = *req.IsPublic
+	}
+
+	if len(updates) == 0 {
+		return nil, ErrNoFieldsToUpdate
+	}
+
+	if err := ps.db.Model(&post).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+
+	if err := ps.db.Preload("User").First(&post, postID).Error; err != nil {
+		return nil, err
+	}
+
+	return &post, nil
 }
 
 // DeletePost - 글 삭제
@@ -97,30 +148,17 @@ func (ps *PostService) DeletePost(postID uint, userID uint) error {
 	var post model.Post
 	if err := ps.db.First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("글을 찾을 수 없습니다")
+			return ErrPostNotFound
 		}
 		return err
 	}
 
 	if post.UserID != userID {
-		return errors.New("이 글을 삭제할 권한이 없습니다")
+		return ErrUnauthorized
 	}
 
 	if err := ps.db.Delete(&post).Error; err != nil {
 		return err
 	}
 	return nil
-}
-
-// CheckOwnership - 글의 소유자인지 확인
-func (ps *PostService) CheckOwnership(postID uint, userID uint) (bool, error) {
-	var post model.Post
-	if err := ps.db.First(&post, postID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, errors.New("글을 찾을 수 없습니다")
-		}
-		return false, err
-	}
-
-	return post.UserID == userID, nil
 }

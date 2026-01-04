@@ -25,19 +25,26 @@ func Setup(app *fiber.App, cfg *config.Config) {
 
 	app.Get("/health", handler.HealthHandler)
 
+	// 프로덕션에서 API 스펙 노출 방지 처리 필요
 	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
+	// api version 1
+	api := app.Group("/api/v1")
+
 	// Auth routes
-	app.Post("/login", userHandler.Login)
-	app.Post("/register", userHandler.Register)
+	auth := api.Group("/auth")
+	auth.Post("/login", userHandler.Login)
+	auth.Post("/register", userHandler.Register)
 
 	// Post routes
-	app.Get("/posts", postHandler.GetPublicPosts)                                 // 공개 글 목록
-	app.Get("/posts/:id", postHandler.GetPost)                                    // 글 상세 조회
-	app.Post("/posts", middleware.AuthMiddleware(), postHandler.CreatePost)       // 글 생성 (인증 필요)
-	app.Put("/posts/:id", middleware.AuthMiddleware(), postHandler.UpdatePost)    // 글 수정 (인증 필요)
-	app.Delete("/posts/:id", middleware.AuthMiddleware(), postHandler.DeletePost) // 글 삭제 (인증 필요)
+	posts := api.Group("/posts")
+	posts.Get("", postHandler.GetPublicPosts)                                 // 공개 글 목록
+	posts.Get("/:id", postHandler.GetPost)                                    // 글 상세 조회
+	posts.Post("", middleware.AuthMiddleware(), postHandler.CreatePost)       // 글 생성 (인증 필요)
+	posts.Patch("/:id", middleware.AuthMiddleware(), postHandler.UpdatePost)  // 글 수정 (인증 필요)
+	posts.Delete("/:id", middleware.AuthMiddleware(), postHandler.DeletePost) // 글 삭제 (인증 필요)
 
 	// User posts
-	app.Get("/users/:user_id/posts", postHandler.GetUserPosts) // 사용자 글 목록
+	users := api.Group("/users")
+	users.Get("/:user_id/posts", postHandler.GetUserPosts) // 사용자 글 목록
 }
