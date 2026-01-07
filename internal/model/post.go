@@ -16,7 +16,7 @@ type Post struct {
 type CreatePostRequest struct {
 	Title    string `json:"title" binding:"required,min=1,max=255"`
 	Content  string `json:"content" binding:"required"`
-	IsPublic *bool  `json:"is_public"`
+	IsPublic bool   `json:"is_public"`
 }
 
 type UpdatePostRequest struct {

@@ -18,20 +18,22 @@ func NewPostService(db *gorm.DB) *PostService {
 }
 
 // CreatePost - 새 글 생성
-func (ps *PostService) CreatePost(post *model.Post) (*model.Post, error) {
+func (ps *PostService) CreatePost(post *model.Post) error {
 	if err := ps.db.Create(post).Error; err != nil {
-		return nil, err
+		return err
 	}
 
 	// User 정보 로드
 	if err := ps.db.Preload("User").First(post, post.ID).Error; err != nil {
-		return nil, err
+		return err
 	}
 
-	return post, nil
+	return nil
 }
 
 // GetPostByID - ID로 글 조회
+// 상황 1. 공개 글일 경우 -> 접근 가능
+// 상황 2. 비공개 글일 경우 -> 로그인 && 접근 권한
 func (ps *PostService) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	var post model.Post
 	if err := ps.db.Preload("User").First(&post, postID).Error; err != nil {

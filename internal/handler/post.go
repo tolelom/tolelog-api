@@ -23,25 +23,27 @@ func NewPostHandler(cfg *config.Config) *PostHandler {
 // @Summary 새 글 생성
 // @Description 사용자가 새로운 글을 작성합니다
 // @Tags Posts
-// @Accept json
-// @Produce json
+// @Accept JSON
+// @Produce JSON
 // @Param Authorization header string true "Bearer token"
-// @Param body body model.CreatePostRequest true "글 내용"
+// @Param body model.CreatePostRequest true "글 내용"
 // @Success 201 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
 // @Router /posts [post]
 func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "인증 정보가 없습니다",
+		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+			Error:   "unauthorized",
+			Message: "인증 정보가 없습니다",
 		})
 	}
 
 	var req model.CreatePostRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "요청 형식이 잘못되었습니다",
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "bad_request",
+			Message: "요청 형식이 잘못되었습니다",
 		})
 	}
 
@@ -53,24 +55,20 @@ func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 	}
 
 	if err := ph.service.CreatePost(post); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "글 저장에 실패했습니다",
+		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+			Error:   "creation_failed",
+			Message: "글 저장에 실패했습니다",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status": "success",
-		"data": fiber.Map{
-			"id": post.ID,
-		},
-	})
+	return c.Status(fiber.StatusCreated).JSON(post.ToResponse())
 }
 
 // GetPost - 글 상세 조회
 // @Summary 글 상세 조회
 // @Description ID로 글을 조회합니다
 // @Tags Posts
-// @Produce json
+// @Produce JSON
 // @Param id path int true "글 ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 404 {object} map[string]string
@@ -78,15 +76,22 @@ func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "잘못된 ID입니다",
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "bad_request",
+			Message: "잘못된 ID입니다",
 		})
 	}
 
-	post, err := ph.service.GetPostByID(uint(postID))
+	var currentUserID *uint
+	if uid, ok := c.Locals("userID").(uint); ok {
+		currentUserID = &uid
+	}
+
+	post, err := ph.service.GetPostByID(uint(postID), currentUserID) //
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
+			Error:   "post_not_found",
+			Message: err.Error(),
 		})
 	}
 
@@ -94,8 +99,9 @@ func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 	if !post.IsPublic {
 		userID, ok := c.Locals("userID").(uint)
 		if !ok || userID != post.UserID {
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "이 글을 볼 수 없습니다",
+			return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
+				Error:   "forbidden",
+				Message: "이 글을 볼 수 없습니다",
 			})
 		}
 	}
@@ -110,7 +116,7 @@ func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 // @Summary 공개 글 목록 조회
 // @Description 공개된 모든 글을 페이지네이션으로 조회합니다
 // @Tags Posts
-// @Produce json
+// @Produce js	on
 // @Param page query int false "페이지 번호 (기본값: 1)"
 // @Param page_size query int false "페이지 크기 (기본값: 10)"
 // @Success 200 {object} map[string]interface{}

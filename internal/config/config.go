@@ -53,15 +53,12 @@ func (c *Config) InitDataBase() error {
 
 	c.DB = database
 
-	sqlDB, err := database.DB()
-	if err != nil {
+	if sqlDB, err := database.DB(); err != nil {
 		return fmt.Errorf("DB instance에 연결 실패했습니다: %w", err)
-	}
-
-	// DB Ping 테스트
-	if err := sqlDB.Ping(); err != nil {
+	} else if err := sqlDB.Ping(); err != nil {
 		return fmt.Errorf("DB ping 실패: %w", err)
 	}
+
 	log.Println("Database 연결 성공")
 
 	// DB Migration
