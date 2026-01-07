@@ -19,16 +19,18 @@ func NewPostHandler(cfg *config.Config) *PostHandler {
 	}
 }
 
-// CreatePost - 새 글 생성
-// @Summary 새 글 생성
-// @Description 사용자가 새로운 글을 작성합니다
-// @Tags Posts
-// @Accept JSON
-// @Produce JSON
-// @Param Authorization header string true "Bearer token"
-// @Param body model.CreatePostRequest true "글 내용"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
+// CreatePost godoc
+// @Summary      새 글 생성
+// @Description  사용자가 새로운 글을 작성합니다
+// @Tags         Posts
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                   true  "Bearer token"
+// @Param        body           body    model.CreatePostRequest  true  "글 내용"
+// @Success      201            {object}  model.PostResponse
+// @Failure      400            {object}  model.ErrorResponse
+// @Failure      401            {object}  model.ErrorResponse
+// @Failure      500            {object}  model.ErrorResponse
 // @Router /posts [post]
 func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)

@@ -19,7 +19,18 @@ func NewUserHandler(cfg *config.Config) *UserHandler {
 	}
 }
 
-// 회원가입
+// Register godoc
+// @Summary      회원가입
+// @Description  새로운 사용자를 등록합니다
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      model.RegisterRequest  true  "회원가입 정보"
+// @Success      201   {object}  model.AuthResponse
+// @Failure      400   {object}  model.ErrorResponse
+// @Failure      409   {object}  model.ErrorResponse
+// @Failure      500   {object}  model.ErrorResponse
+// @Router       /auth/register [post]
 func (h *UserHandler) Register(c *fiber.Ctx) error {
 	var req model.RegisterRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -46,7 +57,18 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(authResp)
 }
 
-// 로그인
+// Login godoc
+// @Summary      로그인
+// @Description  사용자명과 비밀번호로 로그인합니다
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      model.LoginRequest  true  "로그인 정보"
+// @Success      200   {object}  model.AuthResponse
+// @Failure      400   {object}  model.ErrorResponse
+// @Failure      401   {object}  model.ErrorResponse
+// @Failure      500   {object}  model.ErrorResponse
+// @Router       /auth/login [post]
 func (h *UserHandler) Login(c *fiber.Ctx) error {
 	var req model.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
