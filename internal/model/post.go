@@ -1,21 +1,26 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Post struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	Title     string    `gorm:"size:255;not null"`
-	Content   string    `gorm:"type:longtext;not null"`
-	UserID    uint      `gorm:"not null;index"`
-	User      User      `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
-	IsPublic  bool      `gorm:"default:true"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+	ID        uint           `gorm:"primaryKey;autoIncrement"`
+	Title     string         `gorm:"size:255;not null"`
+	Content   string         `gorm:"type:longtext;not null"`
+	UserID    uint           `gorm:"not null;index"`
+	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	IsPublic  bool           `gorm:"default:true"`
+	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 type CreatePostRequest struct {
 	Title    string `json:"title" binding:"required,min=1,max=255"`
-	Content  string `json:"content" binding:"required"`
+	Content  string `json:"content" binding:"required,min=1"`
 	IsPublic bool   `json:"is_public"`
 }
 
@@ -44,6 +49,18 @@ type PostListResponse struct {
 	IsPublic  bool      `json:"is_public"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type PostListWithPagination struct {
+	Posts      []PostListResponse `json:"posts"`
+	Pagination Pagination         `json:"pagination"`
+}
+
+type Pagination struct {
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	Total      int64 `json:"total"`
+	TotalPages int64 `json:"total_pages"`
 }
 
 func (p *Post) ToResponse() PostResponse {
