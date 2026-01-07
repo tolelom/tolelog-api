@@ -38,11 +38,11 @@ func Setup(app *fiber.App, cfg *config.Config) {
 
 	// Post routes
 	posts := api.Group("/posts")
-	posts.Get("", postHandler.GetPublicPosts)                                 // 공개 글 목록
-	posts.Get("/:id", postHandler.GetPost)                                    // 글 상세 조회
-	posts.Post("", middleware.AuthMiddleware(), postHandler.CreatePost)       // 글 생성 (인증 필요)
-	posts.Patch("/:id", middleware.AuthMiddleware(), postHandler.UpdatePost)  // 글 수정 (인증 필요)
-	posts.Delete("/:id", middleware.AuthMiddleware(), postHandler.DeletePost) // 글 삭제 (인증 필요)
+	posts.Get("", postHandler.GetPublicPosts)                                    // 공개 글 목록
+	posts.Get("/:id", postHandler.GetPost)                                       // 글 상세 조회
+	posts.Post("", middleware.AuthMiddleware(cfg), postHandler.CreatePost)       // 글 생성 (인증 필요)
+	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)  // 글 수정 (인증 필요)
+	posts.Delete("/:id", middleware.AuthMiddleware(cfg), postHandler.DeletePost) // 글 삭제 (인증 필요)
 
 	// User posts
 	users := api.Group("/users")

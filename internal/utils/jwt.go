@@ -49,7 +49,6 @@ func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
 		tokenString,
 		&Claims{},
 		func(token *jwt.Token) (interface{}, error) {
-			// ✅ Critical: Verify the signing algorithm to prevent algorithm confusion attacks
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("%w: %v", ErrInvalidSigningMethod, token.Header["alg"])
 			}
