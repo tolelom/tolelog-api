@@ -7,8 +7,11 @@ import (
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/service"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
+
+var postValidate = validator.New()
 
 type PostHandler struct {
 	service *service.PostService
@@ -47,6 +50,12 @@ func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 잘못되었습니다",
+		})
+	}
+	if err := postValidate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "validation_failed",
+			Message: err.Error(),
 		})
 	}
 
@@ -260,6 +269,12 @@ func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 잘못되었습니다",
+		})
+	}
+	if err := postValidate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "validation_failed",
+			Message: err.Error(),
 		})
 	}
 

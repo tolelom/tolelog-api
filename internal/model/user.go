@@ -11,13 +11,13 @@ type User struct {
 }
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required,min=2,max=20"`
-	Password string `json:"password" binding:"required,min=8"`
+	Username string `json:"username" validate:"required,min=2,max=20"`
+	Password string `json:"password" validate:"required,min=8"`
 }
 
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=2,max=20"`
-	Password string `json:"password" binding:"required,min=8"`
+	Username string `json:"username" validate:"required,min=2,max=20"`
+	Password string `json:"password" validate:"required,min=8"`
 }
 
 type AuthResponse struct {

@@ -11,11 +11,12 @@ import (
 )
 
 type AuthService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	jwtSecret string
 }
 
-func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{db: db}
+func NewAuthService(db *gorm.DB, jwtSecret string) *AuthService {
+	return &AuthService{db: db, jwtSecret: jwtSecret}
 }
 
 func (s *AuthService) RegisterUser(req *model.RegisterRequest) (*model.AuthResponse, error) {
@@ -41,7 +42,7 @@ func (s *AuthService) RegisterUser(req *model.RegisterRequest) (*model.AuthRespo
 		return nil, err
 	}
 
-	token, err := utils.GenerateJWT(user)
+	token, err := utils.GenerateJWT(user, s.jwtSecret)
 	return &model.AuthResponse{
 		User:  user.ToResponse(),
 		Token: token,
@@ -67,7 +68,7 @@ func (s *AuthService) AuthenticateUser(req *model.LoginRequest) (*model.AuthResp
 		return nil, err
 	}
 
-	token, err := utils.GenerateJWT(&user)
+	token, err := utils.GenerateJWT(&user, s.jwtSecret)
 	return &model.AuthResponse{
 		User:  user.ToResponse(),
 		Token: token,

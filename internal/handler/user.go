@@ -6,8 +6,11 @@ import (
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/service"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
+
+var userValidate = validator.New()
 
 type UserHandler struct {
 	authService *service.AuthService
@@ -15,7 +18,7 @@ type UserHandler struct {
 
 func NewUserHandler(cfg *config.Config) *UserHandler {
 	return &UserHandler{
-		authService: service.NewAuthService(cfg.DB),
+		authService: service.NewAuthService(cfg.DB, cfg.JWTSecret),
 	}
 }
 
@@ -37,6 +40,12 @@ func (h *UserHandler) Register(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 올바르지 않습니다",
+		})
+	}
+	if err := userValidate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "validation_failed",
+			Message: err.Error(),
 		})
 	}
 
@@ -75,6 +84,12 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 올바르지 않습니다",
+		})
+	}
+	if err := userValidate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+			Error:   "validation_failed",
+			Message: err.Error(),
 		})
 	}
 

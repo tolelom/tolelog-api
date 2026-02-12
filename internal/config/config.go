@@ -35,7 +35,7 @@ func LoadConfig() (*Config, error) {
 		DBPassword: getEnv("DB_PASSWORD", "root"),
 		DBName:     getEnv("DB_NAME", "blog"),
 		JWTSecret:  getEnv("JWT_SECRET", "jwt"),
-		Port:       getEnv("PORT", "80"),
+		Port:       getEnv("PORT", "8080"),
 	}, nil
 }
 
