@@ -57,7 +57,14 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(authResp)
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.AuthDataResponse{
+			Token:    authResp.Token,
+			Username: authResp.User.Username,
+			UserID:   authResp.User.ID,
+		},
+	})
 }
 
 // Login godoc
@@ -102,5 +109,12 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(authResp)
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.AuthDataResponse{
+			Token:    authResp.Token,
+			Username: authResp.User.Username,
+			UserID:   authResp.User.ID,
+		},
+	})
 }

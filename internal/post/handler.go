@@ -68,7 +68,10 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(dto.PostToResponse(p))
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   dto.PostToResponse(p),
+	})
 }
 
 // GetPost godoc
@@ -118,7 +121,10 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.PostToResponse(p))
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   dto.PostToResponse(p),
+	})
 }
 
 // GetPublicPosts godoc
@@ -155,13 +161,16 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 		postResponses = append(postResponses, dto.PostToListResponse(&p))
 	}
 
-	return c.JSON(dto.PostListWithPagination{
-		Posts: postResponses,
-		Pagination: dto.Pagination{
-			Page:       page,
-			PageSize:   pageSize,
-			Total:      total,
-			TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.PostListWithPagination{
+			Posts: postResponses,
+			Pagination: dto.Pagination{
+				Page:       page,
+				PageSize:   pageSize,
+				Total:      total,
+				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+			},
 		},
 	})
 }
@@ -215,13 +224,16 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 		postResponses = append(postResponses, dto.PostToListResponse(&p))
 	}
 
-	return c.JSON(dto.PostListWithPagination{
-		Posts: postResponses,
-		Pagination: dto.Pagination{
-			Page:       page,
-			PageSize:   pageSize,
-			Total:      total,
-			TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.PostListWithPagination{
+			Posts: postResponses,
+			Pagination: dto.Pagination{
+				Page:       page,
+				PageSize:   pageSize,
+				Total:      total,
+				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+			},
 		},
 	})
 }
@@ -299,7 +311,10 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(dto.PostToResponse(updatedPost))
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   dto.PostToResponse(updatedPost),
+	})
 }
 
 // DeletePost godoc
@@ -309,7 +324,7 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "글 ID"
-// @Success      204  "No Content"
+// @Success      200  {object}  dto.SuccessResponse
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -352,5 +367,10 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.SendStatus(fiber.StatusNoContent)
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: fiber.Map{
+			"message": "삭제되었습니다",
+		},
+	})
 }
