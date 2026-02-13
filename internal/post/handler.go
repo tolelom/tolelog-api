@@ -1,26 +1,21 @@
-package handler
+package post
 
 import (
 	"errors"
 	"strconv"
-	"tolelom_api/internal/config"
+	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/service"
+	"tolelom_api/internal/validate"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
-var postValidate = validator.New()
-
-type PostHandler struct {
-	service *service.PostService
+type Handler struct {
+	service Service
 }
 
-func NewPostHandler(cfg *config.Config) *PostHandler {
-	return &PostHandler{
-		service: service.NewPostService(cfg.DB),
-	}
+func NewHandler(service Service) *Handler {
+	return &Handler{service: service}
 }
 
 // CreatePost godoc
@@ -29,51 +24,51 @@ func NewPostHandler(cfg *config.Config) *PostHandler {
 // @Tags         Posts
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header  string                   true  "Bearer token"
-// @Param        body           body    model.CreatePostRequest  true  "글 내용"
-// @Success      201            {object}  model.PostResponse
-// @Failure      400            {object}  model.ErrorResponse
-// @Failure      401            {object}  model.ErrorResponse
-// @Failure      500            {object}  model.ErrorResponse
+// @Param        Authorization  header  string                  true  "Bearer token"
+// @Param        body           body    dto.CreatePostRequest   true  "글 내용"
+// @Success      201            {object}  dto.PostResponse
+// @Failure      400            {object}  dto.ErrorResponse
+// @Failure      401            {object}  dto.ErrorResponse
+// @Failure      500            {object}  dto.ErrorResponse
 // @Router       /posts [post]
-func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
+func (h *Handler) CreatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
 			Error:   "unauthorized",
 			Message: "인증 정보가 없습니다",
 		})
 	}
 
-	var req model.CreatePostRequest
+	var req dto.CreatePostRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 잘못되었습니다",
 		})
 	}
-	if err := postValidate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+	if err := validate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "validation_failed",
 			Message: err.Error(),
 		})
 	}
 
-	post := &model.Post{
+	p := &model.Post{
 		Title:    req.Title,
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
 	}
 
-	if err := ph.service.CreatePost(post); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+	if err := h.service.CreatePost(p); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "creation_failed",
 			Message: "글 저장에 실패했습니다",
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(post.ToResponse())
+	return c.Status(fiber.StatusCreated).JSON(dto.PostToResponse(p))
 }
 
 // GetPost godoc
@@ -83,16 +78,16 @@ func (ph *PostHandler) CreatePost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        id             path    int     true   "글 ID"
 // @Param        Authorization  header  string  false  "Bearer token (비공개 글 조회 시 필요)"
-// @Success      200  {object}  model.PostResponse
-// @Failure      400  {object}  model.ErrorResponse
-// @Failure      403  {object}  model.ErrorResponse
-// @Failure      404  {object}  model.ErrorResponse
-// @Failure      500  {object}  model.ErrorResponse
+// @Success      200  {object}  dto.PostResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [get]
-func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
+func (h *Handler) GetPost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_id",
 			Message: "잘못된 ID입니다",
 		})
@@ -103,27 +98,27 @@ func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 		currentUserID = &uid
 	}
 
-	post, err := ph.service.GetPostByID(uint(postID), currentUserID)
+	p, err := h.service.GetPostByID(uint(postID), currentUserID)
 	if err != nil {
-		if errors.Is(err, service.ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrPostNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
 				Error:   "post_not_found",
 				Message: "글을 찾을 수 없습니다",
 			})
 		}
-		if errors.Is(err, service.ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrUnauthorized) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
 				Error:   "forbidden",
 				Message: "이 글을 볼 권한이 없습니다",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "fetch_failed",
 			Message: "글 조회에 실패했습니다",
 		})
 	}
 
-	return c.JSON(post.ToResponse())
+	return c.JSON(dto.PostToResponse(p))
 }
 
 // GetPublicPosts godoc
@@ -133,10 +128,10 @@ func (ph *PostHandler) GetPost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        page       query  int  false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int  false  "페이지 크기 (기본값: 10)"
-// @Success      200  {object}  model.PostListWithPagination
-// @Failure      500  {object}  model.ErrorResponse
+// @Success      200  {object}  dto.PostListWithPagination
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts [get]
-func (ph *PostHandler) GetPublicPosts(c *fiber.Ctx) error {
+func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	pageSize := c.QueryInt("page_size", 10)
 
@@ -147,22 +142,22 @@ func (ph *PostHandler) GetPublicPosts(c *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	posts, total, err := ph.service.GetPublicPosts(page, pageSize)
+	posts, total, err := h.service.GetPublicPosts(page, pageSize)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "fetch_failed",
 			Message: "글 목록 조회에 실패했습니다",
 		})
 	}
 
-	var postResponses []model.PostListResponse
-	for _, post := range posts {
-		postResponses = append(postResponses, post.ToListResponse())
+	var postResponses []dto.PostListResponse
+	for _, p := range posts {
+		postResponses = append(postResponses, dto.PostToListResponse(&p))
 	}
 
-	return c.JSON(model.PostListWithPagination{
+	return c.JSON(dto.PostListWithPagination{
 		Posts: postResponses,
-		Pagination: model.Pagination{
+		Pagination: dto.Pagination{
 			Page:       page,
 			PageSize:   pageSize,
 			Total:      total,
@@ -179,14 +174,14 @@ func (ph *PostHandler) GetPublicPosts(c *fiber.Ctx) error {
 // @Param        user_id    path   int  true   "사용자 ID"
 // @Param        page       query  int  false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int  false  "페이지 크기 (기본값: 10)"
-// @Success      200  {object}  model.PostListWithPagination
-// @Failure      400  {object}  model.ErrorResponse
-// @Failure      500  {object}  model.ErrorResponse
+// @Success      200  {object}  dto.PostListWithPagination
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /users/{user_id}/posts [get]
-func (ph *PostHandler) GetUserPosts(c *fiber.Ctx) error {
+func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_user_id",
 			Message: "잘못된 사용자 ID입니다",
 		})
@@ -207,22 +202,22 @@ func (ph *PostHandler) GetUserPosts(c *fiber.Ctx) error {
 		currentUserID = &uid
 	}
 
-	posts, total, err := ph.service.GetUserPosts(uint(userID), currentUserID, page, pageSize)
+	posts, total, err := h.service.GetUserPosts(uint(userID), currentUserID, page, pageSize)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "fetch_failed",
 			Message: "글 목록 조회에 실패했습니다",
 		})
 	}
 
-	var postResponses []model.PostListResponse
-	for _, post := range posts {
-		postResponses = append(postResponses, post.ToListResponse())
+	var postResponses []dto.PostListResponse
+	for _, p := range posts {
+		postResponses = append(postResponses, dto.PostToListResponse(&p))
 	}
 
-	return c.JSON(model.PostListWithPagination{
+	return c.JSON(dto.PostListWithPagination{
 		Posts: postResponses,
-		Pagination: model.Pagination{
+		Pagination: dto.Pagination{
 			Page:       page,
 			PageSize:   pageSize,
 			Total:      total,
@@ -237,20 +232,20 @@ func (ph *PostHandler) GetUserPosts(c *fiber.Ctx) error {
 // @Tags         Posts
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header  string                   true  "Bearer token"
-// @Param        id             path    int                      true  "글 ID"
-// @Param        body           body    model.UpdatePostRequest  true  "수정할 내용"
-// @Success      200  {object}  model.PostResponse
-// @Failure      400  {object}  model.ErrorResponse
-// @Failure      401  {object}  model.ErrorResponse
-// @Failure      403  {object}  model.ErrorResponse
-// @Failure      404  {object}  model.ErrorResponse
-// @Failure      500  {object}  model.ErrorResponse
+// @Param        Authorization  header  string                  true  "Bearer token"
+// @Param        id             path    int                     true  "글 ID"
+// @Param        body           body    dto.UpdatePostRequest   true  "수정할 내용"
+// @Success      200  {object}  dto.PostResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [put]
-func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
+func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
 			Error:   "unauthorized",
 			Message: "인증 정보가 없습니다",
 		})
@@ -258,53 +253,53 @@ func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_id",
 			Message: "잘못된 ID입니다",
 		})
 	}
 
-	var req model.UpdatePostRequest
+	var req dto.UpdatePostRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_request",
 			Message: "요청 형식이 잘못되었습니다",
 		})
 	}
-	if err := postValidate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+	if err := validate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "validation_failed",
 			Message: err.Error(),
 		})
 	}
 
-	updatedPost, err := ph.service.UpdatePost(uint(postID), userID, &req)
+	updatedPost, err := h.service.UpdatePost(uint(postID), userID, &req)
 	if err != nil {
-		if errors.Is(err, service.ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrPostNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
 				Error:   "post_not_found",
 				Message: "글을 찾을 수 없습니다",
 			})
 		}
-		if errors.Is(err, service.ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrUnauthorized) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
 				Error:   "forbidden",
 				Message: "이 글을 수정할 권한이 없습니다",
 			})
 		}
-		if errors.Is(err, service.ErrNoFieldsToUpdate) {
-			return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrNoFieldsToUpdate) {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 				Error:   "no_fields_to_update",
 				Message: "수정할 필드가 없습니다",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "update_failed",
 			Message: "글 수정에 실패했습니다",
 		})
 	}
 
-	return c.JSON(updatedPost.ToResponse())
+	return c.JSON(dto.PostToResponse(updatedPost))
 }
 
 // DeletePost godoc
@@ -315,16 +310,16 @@ func (ph *PostHandler) UpdatePost(c *fiber.Ctx) error {
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "글 ID"
 // @Success      204  "No Content"
-// @Failure      400  {object}  model.ErrorResponse
-// @Failure      401  {object}  model.ErrorResponse
-// @Failure      403  {object}  model.ErrorResponse
-// @Failure      404  {object}  model.ErrorResponse
-// @Failure      500  {object}  model.ErrorResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [delete]
-func (ph *PostHandler) DeletePost(c *fiber.Ctx) error {
+func (h *Handler) DeletePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
 			Error:   "unauthorized",
 			Message: "인증 정보가 없습니다",
 		})
@@ -332,26 +327,26 @@ func (ph *PostHandler) DeletePost(c *fiber.Ctx) error {
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
 			Error:   "invalid_id",
 			Message: "잘못된 ID입니다",
 		})
 	}
 
-	if err := ph.service.DeletePost(uint(postID), userID); err != nil {
-		if errors.Is(err, service.ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(model.ErrorResponse{
+	if err := h.service.DeletePost(uint(postID), userID); err != nil {
+		if errors.Is(err, ErrPostNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
 				Error:   "post_not_found",
 				Message: "글을 찾을 수 없습니다",
 			})
 		}
-		if errors.Is(err, service.ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(model.ErrorResponse{
+		if errors.Is(err, ErrUnauthorized) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
 				Error:   "forbidden",
 				Message: "이 글을 삭제할 권한이 없습니다",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(model.ErrorResponse{
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "deletion_failed",
 			Message: "글 삭제에 실패했습니다",
 		})

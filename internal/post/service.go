@@ -1,30 +1,44 @@
-package service
+package post
 
 import (
 	"errors"
+	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
 
 	"gorm.io/gorm"
 )
 
-type PostService struct {
+var (
+	ErrPostNotFound     = errors.New("post not found")
+	ErrUnauthorized     = errors.New("unauthorized")
+	ErrNoFieldsToUpdate = errors.New("no fields to update")
+)
+
+type Service interface {
+	CreatePost(post *model.Post) error
+	GetPostByID(postID uint, userID *uint) (*model.Post, error)
+	GetPublicPosts(page, pageSize int) ([]model.Post, int64, error)
+	GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error)
+	UpdatePost(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error)
+	DeletePost(postID uint, userID uint) error
+}
+
+type service struct {
 	db *gorm.DB
 }
 
-func NewPostService(db *gorm.DB) *PostService {
-	return &PostService{
-		db: db,
-	}
+func NewService(db *gorm.DB) Service {
+	return &service{db: db}
 }
 
 // CreatePost - 새 글 생성
-func (ps *PostService) CreatePost(post *model.Post) error {
-	if err := ps.db.Create(post).Error; err != nil {
+func (s *service) CreatePost(post *model.Post) error {
+	if err := s.db.Create(post).Error; err != nil {
 		return err
 	}
 
 	// User 정보 로드
-	if err := ps.db.Preload("User").First(post, post.ID).Error; err != nil {
+	if err := s.db.Preload("User").First(post, post.ID).Error; err != nil {
 		return err
 	}
 
@@ -32,11 +46,9 @@ func (ps *PostService) CreatePost(post *model.Post) error {
 }
 
 // GetPostByID - ID로 글 조회
-// 상황 1. 공개 글일 경우 -> 접근 가능
-// 상황 2. 비공개 글일 경우 -> 로그인 && 접근 권한
-func (ps *PostService) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
+func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	var post model.Post
-	if err := ps.db.Preload("User").First(&post, postID).Error; err != nil {
+	if err := s.db.Preload("User").First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPostNotFound
 		}
@@ -51,18 +63,16 @@ func (ps *PostService) GetPostByID(postID uint, userID *uint) (*model.Post, erro
 }
 
 // GetPublicPosts - 공개 글 목록 조회 (페이지네이션)
-func (ps *PostService) GetPublicPosts(page, pageSize int) ([]model.Post, int64, error) {
+func (s *service) GetPublicPosts(page, pageSize int) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
-	// 전체 공개 글 개수
-	if err := ps.db.Where("is_public = ?", true).Model(&model.Post{}).Count(&total).Error; err != nil {
+	if err := s.db.Where("is_public = ?", true).Model(&model.Post{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 페이지네이션 적용
 	offset := (page - 1) * pageSize
-	if err := ps.db.Preload("User").Where("is_public = ?", true).
+	if err := s.db.Preload("User").Where("is_public = ?", true).
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -74,22 +84,20 @@ func (ps *PostService) GetPublicPosts(page, pageSize int) ([]model.Post, int64, 
 }
 
 // GetUserPosts - 특정 사용자의 글 목록 조회 (페이지네이션)
-func (ps *PostService) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error) {
+func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
-	query := ps.db.Model(&model.Post{}).Where("user_id = ?", userID)
+	query := s.db.Model(&model.Post{}).Where("user_id = ?", userID)
 
 	if currentUserID == nil || *currentUserID != userID {
 		query = query.Where("is_public = ?", true)
 	}
 
-	// 사용자의 전체 글 개수
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 페이지네이션 적용
 	offset := (page - 1) * pageSize
 	if err := query.Preload("User").
 		Order("created_at DESC").
@@ -103,10 +111,9 @@ func (ps *PostService) GetUserPosts(userID uint, currentUserID *uint, page, page
 }
 
 // UpdatePost - 글 수정
-func (ps *PostService) UpdatePost(postID uint, userID uint, req *model.UpdatePostRequest) (*model.Post, error) {
-	// 권한 확인
+func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
 	var post model.Post
-	if err := ps.db.First(&post, postID).Error; err != nil {
+	if err := s.db.First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPostNotFound
 		}
@@ -133,11 +140,11 @@ func (ps *PostService) UpdatePost(postID uint, userID uint, req *model.UpdatePos
 		return nil, ErrNoFieldsToUpdate
 	}
 
-	if err := ps.db.Model(&post).Updates(updates).Error; err != nil {
+	if err := s.db.Model(&post).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 
-	if err := ps.db.Preload("User").First(&post, postID).Error; err != nil {
+	if err := s.db.Preload("User").First(&post, postID).Error; err != nil {
 		return nil, err
 	}
 
@@ -145,10 +152,9 @@ func (ps *PostService) UpdatePost(postID uint, userID uint, req *model.UpdatePos
 }
 
 // DeletePost - 글 삭제
-func (ps *PostService) DeletePost(postID uint, userID uint) error {
-	// 글이 사용자의 것인지 확인
+func (s *service) DeletePost(postID uint, userID uint) error {
 	var post model.Post
-	if err := ps.db.First(&post, postID).Error; err != nil {
+	if err := s.db.First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrPostNotFound
 		}
@@ -159,7 +165,7 @@ func (ps *PostService) DeletePost(postID uint, userID uint) error {
 		return ErrUnauthorized
 	}
 
-	if err := ps.db.Delete(&post).Error; err != nil {
+	if err := s.db.Delete(&post).Error; err != nil {
 		return err
 	}
 	return nil
