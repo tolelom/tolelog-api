@@ -6,11 +6,8 @@ on:
       - main
 
 jobs:
-  build-deploy:
+  lint:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
@@ -24,6 +21,20 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: latest
+
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Go 설정
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
 
       - name: 바이너리 빌드
         run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o server ./cmd/server
