@@ -7,13 +7,13 @@ import (
 
 type CreatePostRequest struct {
 	Title    string `json:"title" validate:"required,min=1,max=255"`
-	Content  string `json:"content" validate:"required,min=1"`
+	Content  string `json:"content" validate:"required,min=1,max=500000"`
 	IsPublic bool   `json:"is_public"`
 }
 
 type UpdatePostRequest struct {
 	Title    *string `json:"title" validate:"omitempty,min=1,max=255"`
-	Content  *string `json:"content" validate:"omitempty,min=1"`
+	Content  *string `json:"content" validate:"omitempty,min=1,max=500000"`
 	IsPublic *bool   `json:"is_public"`
 }
 

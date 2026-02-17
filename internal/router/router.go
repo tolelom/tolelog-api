@@ -1,6 +1,7 @@
 package router
 
 import (
+	"time"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/post"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 
 	_ "tolelom_api/docs"
 
@@ -20,10 +22,17 @@ type HealthResponse struct {
 }
 
 func Setup(app *fiber.App, cfg *config.Config) {
+	// CORS: 환경변수로 허용 오리진 설정
+	allowOrigins := "https://tolelom.xyz, https://www.tolelom.xyz"
+	if cfg.Environment == "development" {
+		allowOrigins = "http://localhost:5173, http://localhost:3000"
+	}
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     allowOrigins,
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowCredentials: false,
 	}))
 
 	// DI: 서비스 생성 → 핸들러에 주입
@@ -47,16 +56,29 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		})
 	})
 
-	// 프로덕션에서 API 스펙 노출 방지 처리 필요
-	app.Get("/swagger/*", fiberSwagger.WrapHandler)
+	// Swagger: 개발 환경에서만 노출
+	if cfg.Environment != "production" {
+		app.Get("/swagger/*", fiberSwagger.WrapHandler)
+	}
 
 	// api version 1
 	api := app.Group("/api/v1")
 
-	// Auth routes
+	// Auth routes (rate limiting 적용: 분당 10회)
+	authLimiter := limiter.New(limiter.Config{
+		Max:        10,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"error":   "rate_limit_exceeded",
+				"message": "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+			})
+		},
+	})
+
 	auth := api.Group("/auth")
-	auth.Post("/login", userHandler.Login)
-	auth.Post("/register", userHandler.Register)
+	auth.Post("/login", authLimiter, userHandler.Login)
+	auth.Post("/register", authLimiter, userHandler.Register)
 
 	// Post routes
 	posts := api.Group("/posts")

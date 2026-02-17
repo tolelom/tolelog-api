@@ -33,16 +33,16 @@ func NewService(db *gorm.DB) Service {
 
 // CreatePost - 새 글 생성
 func (s *service) CreatePost(post *model.Post) error {
-	if err := s.db.Create(post).Error; err != nil {
-		return err
-	}
-
-	// User 정보 로드
-	if err := s.db.Preload("User").First(post, post.ID).Error; err != nil {
-		return err
-	}
-
-	return nil
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(post).Error; err != nil {
+			return err
+		}
+		// User 정보 로드
+		if err := tx.Preload("User").First(post, post.ID).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // GetPostByID - ID로 글 조회
