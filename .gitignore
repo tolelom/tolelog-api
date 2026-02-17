@@ -86,4 +86,8 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+### IDE ###
+.idea/
+.claude/
+
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,go,dotenv
