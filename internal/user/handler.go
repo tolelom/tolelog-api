@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"strconv"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/validate"
 
@@ -116,5 +117,45 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 			Username: authResp.User.Username,
 			UserID:   authResp.User.ID,
 		},
+	})
+}
+
+// GetProfile godoc
+// @Summary      유저 프로필 조회
+// @Description  유저 ID로 프로필 정보를 조회합니다
+// @Tags         Users
+// @Produce      json
+// @Param        user_id  path      int  true  "유저 ID"
+// @Success      200      {object}  dto.SuccessResponse
+// @Failure      400      {object}  dto.ErrorResponse
+// @Failure      404      {object}  dto.ErrorResponse
+// @Failure      500      {object}  dto.ErrorResponse
+// @Router       /users/{user_id} [get]
+func (h *Handler) GetProfile(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error:   "invalid_user_id",
+			Message: "유효하지 않은 사용자 ID입니다",
+		})
+	}
+
+	u, err := h.authService.GetUserByID(uint(userID))
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error:   "user_not_found",
+				Message: "사용자를 찾을 수 없습니다",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error:   "internal_error",
+			Message: "사용자 조회에 실패했습니다",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   dto.UserToResponse(u),
 	})
 }

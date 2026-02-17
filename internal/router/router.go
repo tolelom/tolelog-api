@@ -3,6 +3,7 @@ package router
 import (
 	"time"
 	"tolelom_api/internal/config"
+	"tolelom_api/internal/image"
 	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/post"
 	"tolelom_api/internal/user"
@@ -35,12 +36,17 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		AllowCredentials: false,
 	}))
 
+	// 정적 파일 서빙 (업로드된 이미지)
+	app.Static("/uploads", "./uploads")
+
 	// DI: 서비스 생성 → 핸들러에 주입
 	authService := user.NewAuthService(cfg.DB, cfg.JWTSecret)
 	userHandler := user.NewHandler(authService)
 
 	postService := post.NewService(cfg.DB)
 	postHandler := post.NewHandler(postService)
+
+	imageHandler := image.NewHandler(cfg.UploadDir)
 
 	// Health check
 	// @Summary		Health Check
@@ -80,6 +86,9 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	auth.Post("/login", authLimiter, userHandler.Login)
 	auth.Post("/register", authLimiter, userHandler.Register)
 
+	// Upload route (인증 필요)
+	api.Post("/upload", middleware.AuthMiddleware(cfg), imageHandler.Upload)
+
 	// Post routes
 	posts := api.Group("/posts")
 	posts.Get("", postHandler.GetPublicPosts)                                    // 공개 글 목록
@@ -89,7 +98,8 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)   // 글 수정 PATCH (인증 필요)
 	posts.Delete("/:id", middleware.AuthMiddleware(cfg), postHandler.DeletePost)  // 글 삭제 (인증 필요)
 
-	// User posts
+	// User routes
 	users := api.Group("/users")
-	users.Get("/:user_id/posts", postHandler.GetUserPosts) // 사용자 글 목록
+	users.Get("/:user_id", userHandler.GetProfile)          // 사용자 프로필
+	users.Get("/:user_id/posts", postHandler.GetUserPosts)  // 사용자 글 목록
 }

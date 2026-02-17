@@ -14,11 +14,13 @@ import (
 var (
 	ErrUserAlreadyExists  = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
 type AuthService interface {
 	RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse, error)
 	AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse, error)
+	GetUserByID(userID uint) (*model.User, error)
 }
 
 type authService struct {
@@ -58,6 +60,17 @@ func (s *authService) RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse,
 		User:  dto.UserToResponse(u),
 		Token: token,
 	}, err
+}
+
+func (s *authService) GetUserByID(userID uint) (*model.User, error) {
+	var u model.User
+	if err := s.db.First(&u, userID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
 }
 
 func (s *authService) AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse, error) {

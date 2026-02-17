@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+const defaultUploadDir = "./uploads/images"
+
 type Config struct {
 	DBHost      string
 	DBPort      string
@@ -24,6 +26,7 @@ type Config struct {
 	JWTSecret   string
 	Port        string
 	Environment string
+	UploadDir   string
 	DB          *gorm.DB
 }
 
@@ -43,7 +46,7 @@ func LoadConfig() (*Config, error) {
 		log.Println("경고: JWT_SECRET이 설정되지 않았습니다. 임시 시크릿을 사용합니다.")
 	}
 
-	return &Config{
+	cfg := &Config{
 		DBHost:      getEnv("DB_HOST", "localhost"),
 		DBPort:      getEnv("DB_PORT", "3306"),
 		DBUser:      getEnv("DB_USER", "root"),
@@ -52,7 +55,14 @@ func LoadConfig() (*Config, error) {
 		JWTSecret:   jwtSecret,
 		Port:        getEnv("PORT", "8080"),
 		Environment: getEnv("ENVIRONMENT", "development"),
-	}, nil
+		UploadDir:   getEnv("UPLOAD_DIR", defaultUploadDir),
+	}
+
+	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
+		return nil, fmt.Errorf("업로드 디렉토리 생성 실패: %w", err)
+	}
+
+	return cfg, nil
 }
 
 func (c *Config) InitDataBase() error {
