@@ -24,7 +24,7 @@ type HealthResponse struct {
 
 func Setup(app *fiber.App, cfg *config.Config) {
 	// CORS: 환경변수로 허용 오리진 설정
-	allowOrigins := "https://tolelom.xyz, https://www.tolelom.xyz"
+	allowOrigins := "https://tolelom.xyz, https://www.tolelom.xyz, https://blog.tolelom.xyz"
 	if cfg.Environment == "development" {
 		allowOrigins = "http://localhost:5173, http://localhost:3000"
 	}
