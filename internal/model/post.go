@@ -13,6 +13,7 @@ type Post struct {
 	UserID    uint           `gorm:"not null;index"`
 	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 	IsPublic  bool           `gorm:"default:true"`
+	Tags      string         `gorm:"size:500;default:''"`
 	CreatedAt time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

@@ -59,6 +59,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
+		Tags:     req.Tags,
 	}
 
 	if err := h.service.CreatePost(p); err != nil {

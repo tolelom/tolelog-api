@@ -135,6 +135,9 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 	if req.IsPublic != nil {
 		updates["is_public"] = *req.IsPublic
 	}
+	if req.Tags != nil {
+		updates["tags"] = *req.Tags
+	}
 
 	if len(updates) == 0 {
 		return nil, ErrNoFieldsToUpdate

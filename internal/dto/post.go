@@ -9,12 +9,14 @@ type CreatePostRequest struct {
 	Title    string `json:"title" validate:"required,min=1,max=255"`
 	Content  string `json:"content" validate:"required,min=1,max=500000"`
 	IsPublic bool   `json:"is_public"`
+	Tags     string `json:"tags" validate:"max=500"`
 }
 
 type UpdatePostRequest struct {
 	Title    *string `json:"title" validate:"omitempty,min=1,max=255"`
 	Content  *string `json:"content" validate:"omitempty,min=1,max=500000"`
 	IsPublic *bool   `json:"is_public"`
+	Tags     *string `json:"tags" validate:"omitempty,max=500"`
 }
 
 type PostResponse struct {
@@ -24,6 +26,7 @@ type PostResponse struct {
 	UserID    uint      `json:"user_id"`
 	Author    string    `json:"author"`
 	IsPublic  bool      `json:"is_public"`
+	Tags      string    `json:"tags"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -34,6 +37,7 @@ type PostListResponse struct {
 	UserID    uint      `json:"user_id"`
 	Author    string    `json:"author"`
 	IsPublic  bool      `json:"is_public"`
+	Tags      string    `json:"tags"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -63,6 +67,7 @@ func PostToResponse(p *model.Post) PostResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
+		Tags:      p.Tags,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
@@ -80,6 +85,7 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
+		Tags:      p.Tags,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
