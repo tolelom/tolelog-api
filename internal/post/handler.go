@@ -141,6 +141,7 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 	page := c.QueryInt("page", 1)
 	pageSize := c.QueryInt("page_size", 10)
+	tag := c.Query("tag")
 
 	if page < 1 {
 		page = 1
@@ -149,7 +150,7 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 		pageSize = 10
 	}
 
-	posts, total, err := h.service.GetPublicPosts(page, pageSize)
+	posts, total, err := h.service.GetPublicPosts(page, pageSize, tag)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "fetch_failed",
@@ -199,6 +200,7 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 
 	page := c.QueryInt("page", 1)
 	pageSize := c.QueryInt("page_size", 10)
+	tag := c.Query("tag")
 
 	if page < 1 {
 		page = 1
@@ -212,7 +214,7 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 		currentUserID = &uid
 	}
 
-	posts, total, err := h.service.GetUserPosts(uint(userID), currentUserID, page, pageSize)
+	posts, total, err := h.service.GetUserPosts(uint(userID), currentUserID, page, pageSize, tag)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
 			Error:   "fetch_failed",

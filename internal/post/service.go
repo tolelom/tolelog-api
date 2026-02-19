@@ -17,8 +17,8 @@ var (
 type Service interface {
 	CreatePost(post *model.Post) error
 	GetPostByID(postID uint, userID *uint) (*model.Post, error)
-	GetPublicPosts(page, pageSize int) ([]model.Post, int64, error)
-	GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error)
+	GetPublicPosts(page, pageSize int, tag string) ([]model.Post, int64, error)
+	GetUserPosts(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error)
 	UpdatePost(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error)
 	DeletePost(postID uint, userID uint) error
 }
@@ -62,17 +62,22 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	return &post, nil
 }
 
-// GetPublicPosts - 공개 글 목록 조회 (페이지네이션)
-func (s *service) GetPublicPosts(page, pageSize int) ([]model.Post, int64, error) {
+// GetPublicPosts - 공개 글 목록 조회 (페이지네이션, 태그 필터)
+func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
-	if err := s.db.Where("is_public = ?", true).Model(&model.Post{}).Count(&total).Error; err != nil {
+	query := s.db.Where("is_public = ?", true)
+	if tag != "" {
+		query = query.Where("tags LIKE ?", "%"+tag+"%")
+	}
+
+	if err := query.Model(&model.Post{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	if err := s.db.Preload("User").Where("is_public = ?", true).
+	if err := query.Preload("User").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -83,8 +88,8 @@ func (s *service) GetPublicPosts(page, pageSize int) ([]model.Post, int64, error
 	return posts, total, nil
 }
 
-// GetUserPosts - 특정 사용자의 글 목록 조회 (페이지네이션)
-func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int) ([]model.Post, int64, error) {
+// GetUserPosts - 특정 사용자의 글 목록 조회 (페이지네이션, 태그 필터)
+func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
@@ -92,6 +97,9 @@ func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize 
 
 	if currentUserID == nil || *currentUserID != userID {
 		query = query.Where("is_public = ?", true)
+	}
+	if tag != "" {
+		query = query.Where("tags LIKE ?", "%"+tag+"%")
 	}
 
 	if err := query.Count(&total).Error; err != nil {
