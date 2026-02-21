@@ -2,19 +2,24 @@ package user
 
 import (
 	"errors"
+	"fmt"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
 	authService AuthService
+	uploadDir   string
 }
 
-func NewHandler(authService AuthService) *Handler {
-	return &Handler{authService: authService}
+func NewHandler(authService AuthService, uploadDir string) *Handler {
+	return &Handler{authService: authService, uploadDir: uploadDir}
 }
 
 // Register godoc
@@ -61,9 +66,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
 		Status: "success",
 		Data: dto.AuthDataResponse{
-			Token:    authResp.Token,
-			Username: authResp.User.Username,
-			UserID:   authResp.User.ID,
+			Token:     authResp.Token,
+			Username:  authResp.User.Username,
+			UserID:    authResp.User.ID,
+			AvatarURL: authResp.User.AvatarURL,
 		},
 	})
 }
@@ -113,9 +119,10 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
 		Data: dto.AuthDataResponse{
-			Token:    authResp.Token,
-			Username: authResp.User.Username,
-			UserID:   authResp.User.ID,
+			Token:     authResp.Token,
+			Username:  authResp.User.Username,
+			UserID:    authResp.User.ID,
+			AvatarURL: authResp.User.AvatarURL,
 		},
 	})
 }
@@ -157,5 +164,104 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
 		Data:   dto.UserToResponse(u),
+	})
+}
+
+var avatarAllowedMIME = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/gif":  true,
+	"image/webp": true,
+}
+
+const avatarMaxSize = 5 * 1024 * 1024 // 5MB
+
+func avatarMimeToExt(mime string) string {
+	switch mime {
+	case "image/jpeg":
+		return ".jpg"
+	case "image/png":
+		return ".png"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	default:
+		return ".jpg"
+	}
+}
+
+// UploadAvatar godoc
+// @Summary      프로필 이미지 업로드
+// @Description  프로필 이미지를 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
+// @Tags         Users
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        avatar  formData  file  true  "프로필 이미지 파일"
+// @Success      200     {object}  dto.SuccessResponse
+// @Failure      400     {object}  dto.ErrorResponse
+// @Failure      401     {object}  dto.ErrorResponse
+// @Failure      500     {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users/avatar [put]
+func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+			Error:   "unauthorized",
+			Message: "인증이 필요합니다",
+		})
+	}
+
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error:   "no_file",
+			Message: "이미지 파일이 필요합니다",
+		})
+	}
+
+	if file.Size > avatarMaxSize {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error:   "file_too_large",
+			Message: "파일 크기는 5MB 이하여야 합니다",
+		})
+	}
+
+	contentType := file.Header.Get("Content-Type")
+	if !avatarAllowedMIME[contentType] {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error:   "invalid_file_type",
+			Message: "허용되는 파일 형식: jpeg, png, gif, webp",
+		})
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext == "" {
+		ext = avatarMimeToExt(contentType)
+	}
+	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+
+	savePath := filepath.Join(h.uploadDir, filename)
+	if err := c.SaveFile(file, savePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error:   "upload_failed",
+			Message: "파일 저장에 실패했습니다",
+		})
+	}
+
+	avatarURL := "/uploads/images/" + filename
+	if err := h.authService.UpdateAvatar(userID, avatarURL); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error:   "update_failed",
+			Message: "프로필 이미지 업데이트에 실패했습니다",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: fiber.Map{
+			"avatar_url": avatarURL,
+		},
 	})
 }

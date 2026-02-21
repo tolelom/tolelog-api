@@ -21,6 +21,7 @@ type AuthService interface {
 	RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse, error)
 	AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse, error)
 	GetUserByID(userID uint) (*model.User, error)
+	UpdateAvatar(userID uint, avatarURL string) error
 }
 
 type authService struct {
@@ -97,4 +98,8 @@ func (s *authService) AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse
 		User:  dto.UserToResponse(&u),
 		Token: token,
 	}, err
+}
+
+func (s *authService) UpdateAvatar(userID uint, avatarURL string) error {
+	return s.db.Model(&model.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error
 }

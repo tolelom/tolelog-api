@@ -23,6 +23,7 @@ type AuthResponse struct {
 type UserResponse struct {
 	ID        uint      `json:"id"`
 	Username  string    `json:"username"`
+	AvatarURL string    `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"`
 	LastLogin time.Time `json:"last_login"`
 }
@@ -31,6 +32,7 @@ func UserToResponse(u *model.User) UserResponse {
 	return UserResponse{
 		ID:        u.ID,
 		Username:  u.Username,
+		AvatarURL: u.AvatarURL,
 		CreatedAt: u.CreatedAt,
 		LastLogin: u.LastLogin,
 	}

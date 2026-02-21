@@ -11,7 +11,8 @@ type SuccessResponse struct {
 }
 
 type AuthDataResponse struct {
-	Token    string `json:"token"`
-	Username string `json:"username"`
-	UserID   uint   `json:"user_id"`
+	Token     string `json:"token"`
+	Username  string `json:"username"`
+	UserID    uint   `json:"user_id"`
+	AvatarURL string `json:"avatar_url"`
 }
