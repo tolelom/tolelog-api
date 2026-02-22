@@ -102,5 +102,5 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	users := api.Group("/users")
 	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar) // 프로필 이미지 업로드 (인증 필요)
 	users.Get("/:user_id", userHandler.GetProfile)                                // 사용자 프로필
-	users.Get("/:user_id/posts", postHandler.GetUserPosts)                        // 사용자 글 목록
+	users.Get("/:user_id/posts", middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
 }
