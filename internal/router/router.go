@@ -92,7 +92,7 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	// Post routes
 	posts := api.Group("/posts")
 	posts.Get("", postHandler.GetPublicPosts)                                    // 공개 글 목록
-	posts.Get("/:id", postHandler.GetPost)                                       // 글 상세 조회
+	posts.Get("/:id", middleware.OptionalAuthMiddleware(cfg), postHandler.GetPost) // 글 상세 조회 (선택적 인증)
 	posts.Post("", middleware.AuthMiddleware(cfg), postHandler.CreatePost)        // 글 생성 (인증 필요)
 	posts.Put("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)     // 글 수정 PUT (인증 필요)
 	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)   // 글 수정 PATCH (인증 필요)
