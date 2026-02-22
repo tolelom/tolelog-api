@@ -6,13 +6,13 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username" validate:"required,min=2,max=20"`
-	Password string `json:"password" validate:"required,min=8,max=128"`
+	Username string `json:"username" validate:"required,min=4,max=20"`
+	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 
 type RegisterRequest struct {
-	Username string `json:"username" validate:"required,min=2,max=20"`
-	Password string `json:"password" validate:"required,min=8,max=128"`
+	Username string `json:"username" validate:"required,min=4,max=20"`
+	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 
 type AuthResponse struct {
