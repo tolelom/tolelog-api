@@ -31,7 +31,11 @@ func generateTestToken(userID uint, username string) string {
 func TestAuthMiddleware_ValidToken(t *testing.T) {
 	var capturedUserID uint
 	handler := func(c *fiber.Ctx) error {
-		capturedUserID = c.Locals("userID").(uint)
+		uid, ok := c.Locals("userID").(uint)
+		if !ok {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+		capturedUserID = uid
 		return c.SendStatus(fiber.StatusOK)
 	}
 
@@ -117,7 +121,11 @@ func TestOptionalAuthMiddleware_NoToken(t *testing.T) {
 func TestOptionalAuthMiddleware_ValidToken(t *testing.T) {
 	var capturedUserID uint
 	handler := func(c *fiber.Ctx) error {
-		capturedUserID = c.Locals("userID").(uint)
+		uid, ok := c.Locals("userID").(uint)
+		if !ok {
+			return c.SendStatus(fiber.StatusUnauthorized)
+		}
+		capturedUserID = uid
 		return c.SendStatus(fiber.StatusOK)
 	}
 

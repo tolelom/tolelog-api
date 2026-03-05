@@ -30,7 +30,9 @@ func TestErrorHandler_FiberError(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	var result map[string]string
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if result["status"] != "error" {
 		t.Errorf("expected status=error, got %s", result["status"])
@@ -59,7 +61,9 @@ func TestErrorHandler_GenericError(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	var result map[string]string
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	if result["status"] != "error" {
 		t.Errorf("expected status=error, got %s", result["status"])
@@ -83,7 +87,9 @@ func TestErrorHandler_ClientError(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	var result map[string]string
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
 
 	// 4xx 에러는 메시지를 그대로 전달
 	if result["message"] != "invalid input" {
