@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,11 +17,13 @@ import (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("설정 로드 실패", "error", err)
+		os.Exit(1)
 	}
 
 	if err := cfg.InitDataBase(); err != nil {
-		log.Fatalf("데이터 베이스 연결에 실패했습니다: %v", err)
+		slog.Error("데이터베이스 연결 실패", "error", err)
+		os.Exit(1)
 	}
 
 	app := fiber.New(fiber.Config{
@@ -36,18 +38,20 @@ func main() {
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
-			log.Fatalf("서버 시작에 실패했습니다: %v", err)
+			slog.Error("서버 시작 실패", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	log.Printf("서버가 :%s 포트에서 시작되었습니다", cfg.Port)
+	slog.Info("서버 시작", "port", cfg.Port)
 
 	<-quit
-	log.Println("서버를 종료합니다...")
+	slog.Info("서버 종료 중...")
 
 	if err := app.Shutdown(); err != nil {
-		log.Fatalf("서버 종료 실패: %v", err)
+		slog.Error("서버 종료 실패", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("서버가 정상 종료되었습니다")
+	slog.Info("서버 정상 종료")
 }

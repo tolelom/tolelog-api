@@ -1,0 +1,90 @@
+package comment
+
+import (
+	"errors"
+	"tolelom_api/internal/model"
+
+	"gorm.io/gorm"
+)
+
+var (
+	ErrCommentNotFound = errors.New("comment not found")
+	ErrUnauthorized    = errors.New("unauthorized")
+	ErrPostNotFound    = errors.New("post not found")
+)
+
+type Service interface {
+	CreateComment(comment *model.Comment) error
+	GetCommentsByPostID(postID uint) ([]model.Comment, int64, error)
+	DeleteComment(commentID uint, userID uint) error
+}
+
+type service struct {
+	db *gorm.DB
+}
+
+func NewService(db *gorm.DB) Service {
+	return &service{db: db}
+}
+
+// CreateComment verifies the post exists then creates the comment.
+func (s *service) CreateComment(comment *model.Comment) error {
+	// Verify post exists and is not soft-deleted
+	var count int64
+	if err := s.db.Model(&model.Post{}).Where("id = ? AND deleted_at IS NULL", comment.PostID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrPostNotFound
+	}
+
+	if err := s.db.Create(comment).Error; err != nil {
+		return err
+	}
+
+	// Preload User for the response
+	if err := s.db.Preload("User").First(comment, comment.ID).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetCommentsByPostID returns all comments for a post ordered by creation time.
+func (s *service) GetCommentsByPostID(postID uint) ([]model.Comment, int64, error) {
+	var comments []model.Comment
+	var total int64
+
+	query := s.db.Where("post_id = ?", postID)
+
+	if err := query.Model(&model.Comment{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := query.Preload("User").Order("created_at ASC").Find(&comments).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return comments, total, nil
+}
+
+// DeleteComment soft-deletes a comment if the requesting user is the author.
+func (s *service) DeleteComment(commentID uint, userID uint) error {
+	var comment model.Comment
+	if err := s.db.First(&comment, commentID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCommentNotFound
+		}
+		return err
+	}
+
+	if comment.UserID != userID {
+		return ErrUnauthorized
+	}
+
+	if err := s.db.Delete(&comment).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

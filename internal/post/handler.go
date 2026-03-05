@@ -34,24 +34,15 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) CreatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-			Error:   "unauthorized",
-			Message: "인증 정보가 없습니다",
-		})
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
 	var req dto.CreatePostRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "요청 형식이 잘못되었습니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
 	}
 	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "validation_failed",
-			Message: err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
 	p := &model.Post{
@@ -59,14 +50,11 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
-		Tags:     req.Tags,
+		TagsRaw:  req.Tags,
 	}
 
 	if err := h.service.CreatePost(p); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "creation_failed",
-			Message: "글 저장에 실패했습니다",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("creation_failed", "글 저장에 실패했습니다"))
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
@@ -91,10 +79,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 func (h *Handler) GetPost(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_id",
-			Message: "잘못된 ID입니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
 	}
 
 	var currentUserID *uint
@@ -105,21 +90,12 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 	p, err := h.service.GetPostByID(uint(postID), currentUserID)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
-				Error:   "post_not_found",
-				Message: "글을 찾을 수 없습니다",
-			})
+			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 		}
 		if errors.Is(err, ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
-				Error:   "forbidden",
-				Message: "이 글을 볼 권한이 없습니다",
-			})
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 볼 권한이 없습니다"))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "fetch_failed",
-			Message: "글 조회에 실패했습니다",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 조회에 실패했습니다"))
 	}
 
 	return c.JSON(dto.SuccessResponse{
@@ -152,10 +128,10 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 
 	posts, total, err := h.service.GetPublicPosts(page, pageSize, tag)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "fetch_failed",
-			Message: "글 목록 조회에 실패했습니다",
-		})
+		if errors.Is(err, ErrInvalidTag) {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 목록 조회에 실패했습니다"))
 	}
 
 	var postResponses []dto.PostListResponse
@@ -192,10 +168,7 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_user_id",
-			Message: "잘못된 사용자 ID입니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_user_id", "잘못된 사용자 ID입니다"))
 	}
 
 	page := c.QueryInt("page", 1)
@@ -216,10 +189,62 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 
 	posts, total, err := h.service.GetUserPosts(uint(userID), currentUserID, page, pageSize, tag)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "fetch_failed",
-			Message: "글 목록 조회에 실패했습니다",
-		})
+		if errors.Is(err, ErrInvalidTag) {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 목록 조회에 실패했습니다"))
+	}
+
+	var postResponses []dto.PostListResponse
+	for _, p := range posts {
+		postResponses = append(postResponses, dto.PostToListResponse(&p))
+	}
+
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.PostListWithPagination{
+			Posts: postResponses,
+			Pagination: dto.Pagination{
+				Page:       page,
+				PageSize:   pageSize,
+				Total:      total,
+				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
+			},
+		},
+	})
+}
+
+// SearchPosts godoc
+// @Summary      글 검색
+// @Description  제목 또는 본문에서 키워드로 공개 글을 검색합니다
+// @Tags         Posts
+// @Produce      json
+// @Param        q          query  string  true   "검색어 (2~100자)"
+// @Param        page       query  int     false  "페이지 번호 (기본값: 1)"
+// @Param        page_size  query  int     false  "페이지 크기 (기본값: 10)"
+// @Success      200  {object}  dto.PostListWithPagination
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /posts/search [get]
+func (h *Handler) SearchPosts(c *fiber.Ctx) error {
+	q := c.Query("q")
+	sanitized, err := SanitizeSearchQuery(q)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_query", "검색어는 2자 이상 100자 이하여야 합니다"))
+	}
+
+	page := c.QueryInt("page", 1)
+	pageSize := c.QueryInt("page_size", 10)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	posts, total, err := h.service.SearchPosts(sanitized, page, pageSize)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("search_failed", "검색에 실패했습니다"))
 	}
 
 	var postResponses []dto.PostListResponse
@@ -260,58 +285,34 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-			Error:   "unauthorized",
-			Message: "인증 정보가 없습니다",
-		})
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_id",
-			Message: "잘못된 ID입니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
 	}
 
 	var req dto.UpdatePostRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "요청 형식이 잘못되었습니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
 	}
 	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "validation_failed",
-			Message: err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
 	updatedPost, err := h.service.UpdatePost(uint(postID), userID, &req)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
-				Error:   "post_not_found",
-				Message: "글을 찾을 수 없습니다",
-			})
+			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 		}
 		if errors.Is(err, ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
-				Error:   "forbidden",
-				Message: "이 글을 수정할 권한이 없습니다",
-			})
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 수정할 권한이 없습니다"))
 		}
 		if errors.Is(err, ErrNoFieldsToUpdate) {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error:   "no_fields_to_update",
-				Message: "수정할 필드가 없습니다",
-			})
+			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_fields_to_update", "수정할 필드가 없습니다"))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "update_failed",
-			Message: "글 수정에 실패했습니다",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "글 수정에 실패했습니다"))
 	}
 
 	return c.JSON(dto.SuccessResponse{
@@ -337,37 +338,22 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 func (h *Handler) DeletePost(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-			Error:   "unauthorized",
-			Message: "인증 정보가 없습니다",
-		})
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_id",
-			Message: "잘못된 ID입니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
 	}
 
 	if err := h.service.DeletePost(uint(postID), userID); err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
-				Error:   "post_not_found",
-				Message: "글을 찾을 수 없습니다",
-			})
+			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 		}
 		if errors.Is(err, ErrUnauthorized) {
-			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
-				Error:   "forbidden",
-				Message: "이 글을 삭제할 권한이 없습니다",
-			})
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 삭제할 권한이 없습니다"))
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "deletion_failed",
-			Message: "글 삭제에 실패했습니다",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("deletion_failed", "글 삭제에 실패했습니다"))
 	}
 
 	return c.JSON(dto.SuccessResponse{

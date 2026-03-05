@@ -44,25 +44,16 @@ func NewHandler(uploadDir string) *Handler {
 func (h *Handler) Upload(c *fiber.Ctx) error {
 	file, err := c.FormFile("image")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "no_file",
-			Message: "이미지 파일이 필요합니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
 	}
 
 	if file.Size > maxFileSize {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "file_too_large",
-			Message: "파일 크기는 5MB 이하여야 합니다",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_too_large", "파일 크기는 5MB 이하여야 합니다"))
 	}
 
 	contentType := file.Header.Get("Content-Type")
 	if !allowedMIMETypes[contentType] {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error:   "invalid_file_type",
-			Message: "허용되는 파일 형식: jpeg, png, gif, webp",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file_type", "허용되는 파일 형식: jpeg, png, gif, webp"))
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
@@ -73,10 +64,7 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 
 	savePath := filepath.Join(h.uploadDir, filename)
 	if err := c.SaveFile(file, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
-			Error:   "upload_failed",
-			Message: "파일 저장에 실패했습니다",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
 	}
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{

@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"strings"
 	"time"
 	"tolelom_api/internal/model"
 )
@@ -54,6 +55,14 @@ type Pagination struct {
 	TotalPages int64 `json:"total_pages"`
 }
 
+func tagsToString(tags []model.Tag) string {
+	names := make([]string, len(tags))
+	for i, t := range tags {
+		names[i] = t.Name
+	}
+	return strings.Join(names, ",")
+}
+
 func PostToResponse(p *model.Post) PostResponse {
 	author := ""
 	if p.User.ID != 0 {
@@ -67,7 +76,7 @@ func PostToResponse(p *model.Post) PostResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
-		Tags:      p.Tags,
+		Tags:      tagsToString(p.Tags),
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
@@ -85,7 +94,7 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
-		Tags:      p.Tags,
+		Tags:      tagsToString(p.Tags),
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}

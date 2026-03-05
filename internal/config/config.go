@@ -4,8 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
+	"strings"
 	"time"
 	"tolelom_api/internal/model"
 
@@ -26,24 +27,30 @@ type Config struct {
 	JWTSecret   string
 	Port        string
 	Environment string
+	RedisAddr   string
 	UploadDir   string
 	DB          *gorm.DB
 }
 
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Println(".env 파일을 찾을 수 없습니다. 기본 값을 사용합니다.")
+		slog.Warn(".env 파일을 찾을 수 없습니다. 기본 값을 사용합니다.")
 	}
+
+	environment := getEnv("ENVIRONMENT", "development")
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		// 환경변수 미설정 시 랜덤 secret 생성 (서버 재시작마다 변경됨)
+		if environment == "production" {
+			return nil, fmt.Errorf("JWT_SECRET 환경변수는 프로덕션 환경에서 필수입니다")
+		}
+		// 개발 환경에서만 임시 시크릿 허용 (서버 재시작마다 변경됨)
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
 			return nil, fmt.Errorf("JWT 시크릿 생성 실패: %w", err)
 		}
 		jwtSecret = hex.EncodeToString(b)
-		log.Println("경고: JWT_SECRET이 설정되지 않았습니다. 임시 시크릿을 사용합니다.")
+		slog.Warn("JWT_SECRET이 설정되지 않았습니다. 개발용 임시 시크릿을 사용합니다.")
 	}
 
 	cfg := &Config{
@@ -54,7 +61,8 @@ func LoadConfig() (*Config, error) {
 		DBName:      getEnv("DB_NAME", "blog"),
 		JWTSecret:   jwtSecret,
 		Port:        getEnv("PORT", "8080"),
-		Environment: getEnv("ENVIRONMENT", "development"),
+		Environment: environment,
+		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
 		UploadDir:   getEnv("UPLOAD_DIR", defaultUploadDir),
 	}
 
@@ -91,16 +99,68 @@ func (c *Config) InitDataBase() error {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	log.Println("Database 연결 성공")
+	slog.Info("Database 연결 성공")
 
 	// DB Migration
-	if err := database.AutoMigrate(&model.User{}, &model.Post{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.Post{}, &model.Tag{}, &model.Comment{}); err != nil {
 		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
 	}
 
-	log.Println("자동 마이그레이션 완료")
+	slog.Info("자동 마이그레이션 완료")
+
+	if err := c.MigrateTagsData(database); err != nil {
+		return fmt.Errorf("태그 데이터 마이그레이션 실패: %v", err)
+	}
 
 	return nil
+}
+
+// MigrateTagsData migrates comma-separated tags from posts.tags column into the normalized tags/post_tags tables.
+func (c *Config) MigrateTagsData(db *gorm.DB) error {
+	var tagCount int64
+	if err := db.Model(&model.Tag{}).Count(&tagCount).Error; err != nil {
+		return err
+	}
+	if tagCount > 0 {
+		slog.Info("태그 테이블에 이미 데이터가 있습니다. 마이그레이션을 건너뜁니다.")
+		return nil
+	}
+
+	var posts []model.Post
+	if err := db.Where("tags != '' AND tags IS NOT NULL").Find(&posts).Error; err != nil {
+		return err
+	}
+	if len(posts) == 0 {
+		slog.Info("마이그레이션할 태그 데이터가 없습니다.")
+		return nil
+	}
+
+	slog.Info("태그 데이터 마이그레이션 시작", "post_count", len(posts))
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, p := range posts {
+			rawTags := strings.Split(p.TagsRaw, ",")
+			var tags []model.Tag
+			for _, raw := range rawTags {
+				name := strings.TrimSpace(raw)
+				if name == "" {
+					continue
+				}
+				var tag model.Tag
+				if err := tx.Where("name = ?", name).FirstOrCreate(&tag, model.Tag{Name: name}).Error; err != nil {
+					return err
+				}
+				tags = append(tags, tag)
+			}
+			if len(tags) > 0 {
+				if err := tx.Model(&p).Association("Tags").Replace(tags); err != nil {
+					return err
+				}
+			}
+		}
+		slog.Info("태그 데이터 마이그레이션 완료")
+		return nil
+	})
 }
 
 func getEnv(key, defaultValue string) string {

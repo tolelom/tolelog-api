@@ -22,6 +22,7 @@ type AuthService interface {
 	AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse, error)
 	GetUserByID(userID uint) (*model.User, error)
 	UpdateAvatar(userID uint, avatarURL string) error
+	RefreshTokens(refreshToken string) (*dto.AuthResponse, error)
 }
 
 type authService struct {
@@ -56,11 +57,16 @@ func (s *authService) RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse,
 		return nil, err
 	}
 
-	token, err := utils.GenerateJWT(u, s.jwtSecret)
+	accessToken, refreshToken, err := utils.GenerateTokenPair(u, s.jwtSecret)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.AuthResponse{
-		User:  dto.UserToResponse(u),
-		Token: token,
-	}, err
+		User:         dto.UserToResponse(u),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *authService) GetUserByID(userID uint) (*model.User, error) {
@@ -93,13 +99,41 @@ func (s *authService) AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse
 		return nil, err
 	}
 
-	token, err := utils.GenerateJWT(&u, s.jwtSecret)
+	accessToken, refreshToken, err := utils.GenerateTokenPair(&u, s.jwtSecret)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.AuthResponse{
-		User:  dto.UserToResponse(&u),
-		Token: token,
-	}, err
+		User:         dto.UserToResponse(&u),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }
 
 func (s *authService) UpdateAvatar(userID uint, avatarURL string) error {
 	return s.db.Model(&model.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error
+}
+
+func (s *authService) RefreshTokens(refreshToken string) (*dto.AuthResponse, error) {
+	claims, err := utils.ValidateRefreshToken(refreshToken, s.jwtSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := s.GetUserByID(claims.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, newRefreshToken, err := utils.GenerateTokenPair(u, s.jwtSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.AuthResponse{
+		User:         dto.UserToResponse(u),
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
 }

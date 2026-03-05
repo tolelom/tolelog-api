@@ -22,7 +22,7 @@ func OptionalAuthMiddleware(cfg *config.Config) fiber.Handler {
 			return c.Next()
 		}
 
-		claims, err := utils.ValidateJWT(parts[1], cfg.JWTSecret)
+		claims, err := utils.ValidateAccessToken(parts[1], cfg.JWTSecret)
 		if err != nil {
 			return c.Next()
 		}
@@ -38,30 +38,21 @@ func AuthMiddleware(cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-				Error:   "missing_authorization",
-				Message: "Authorization 헤더가 없습니다",
-			})
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("missing_authorization", "Authorization 헤더가 없습니다"))
 		}
 
 		// "Bearer <token>" 형식 파싱
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-				Error:   "invalid_token_format",
-				Message: "올바른 형식은 'Bearer {token}' 입니다",
-			})
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_token_format", "올바른 형식은 'Bearer {token}' 입니다"))
 		}
 
 		tokenString := parts[1]
 
 		// JWT 검증
-		claims, err := utils.ValidateJWT(tokenString, cfg.JWTSecret)
+		claims, err := utils.ValidateAccessToken(tokenString, cfg.JWTSecret)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
-				Error:   "invalid_token",
-				Message: "유효하지 않은 토큰입니다",
-			})
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_token", "유효하지 않은 토큰입니다"))
 		}
 
 		// Context에 사용자 정보 저장

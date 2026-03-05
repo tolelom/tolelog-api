@@ -16,35 +16,60 @@ var (
 	ErrTokenNotYetValid     = errors.New("token not yet valid")
 	ErrInvalidSigningMethod = errors.New("unexpected signing method")
 	ErrMissingClaims        = errors.New("missing required claims")
+	ErrInvalidTokenType     = errors.New("invalid token type")
 )
 
 // Claims represents JWT custom claims
 type Claims struct {
-	UserID   uint   `json:"user_id"`
-	Username string `json:"username"`
+	UserID    uint   `json:"user_id"`
+	Username  string `json:"username"`
+	TokenType string `json:"token_type"` // "access" or "refresh"
 	jwt.RegisteredClaims
 }
 
-// GenerateJWT creates a new JWT token for the given user
-func GenerateJWT(user *model.User, secretKey string) (string, error) {
-	claims := Claims{
-		UserID:   user.ID,
-		Username: user.Username,
+// GenerateTokenPair creates a new access token (15min) and refresh token (7 days) for the given user
+func GenerateTokenPair(user *model.User, secretKey string) (accessToken string, refreshToken string, err error) {
+	now := time.Now()
+
+	// Access token: 15 minutes
+	accessClaims := Claims{
+		UserID:    user.ID,
+		Username:  user.Username,
+		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
 			Issuer:    "tolelom_api",
 		},
 	}
+	accessToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(secretKey))
+	if err != nil {
+		return "", "", err
+	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secretKey))
+	// Refresh token: 7 days
+	refreshClaims := Claims{
+		UserID:    user.ID,
+		Username:  user.Username,
+		TokenType: "refresh",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			Issuer:    "tolelom_api",
+		},
+	}
+	refreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(secretKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
 }
 
-// ValidateJWT validates a JWT token and returns the claims if valid
-func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
-	// Parse and validate the token
+// validateToken parses and validates a JWT token, returning the claims
+func validateToken(tokenString string, secretKey string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&Claims{},
@@ -58,7 +83,6 @@ func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
 	)
 
 	if err != nil {
-		// Detailed error handling
 		switch {
 		case errors.Is(err, jwt.ErrTokenExpired):
 			return nil, ErrExpiredToken
@@ -73,7 +97,6 @@ func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
 		}
 	}
 
-	// Extract claims
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
 		return nil, fmt.Errorf("%w: failed to parse claims", ErrInvalidToken)
@@ -83,7 +106,6 @@ func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	// Validate required fields
 	if claims.UserID == 0 {
 		return nil, fmt.Errorf("%w: missing user ID", ErrMissingClaims)
 	}
@@ -91,5 +113,29 @@ func ValidateJWT(tokenString string, secretKey string) (*Claims, error) {
 		return nil, fmt.Errorf("%w: missing username", ErrMissingClaims)
 	}
 
+	return claims, nil
+}
+
+// ValidateAccessToken validates a JWT token and only accepts access tokens
+func ValidateAccessToken(tokenString string, secretKey string) (*Claims, error) {
+	claims, err := validateToken(tokenString, secretKey)
+	if err != nil {
+		return nil, err
+	}
+	if claims.TokenType != "access" {
+		return nil, fmt.Errorf("%w: expected access token", ErrInvalidTokenType)
+	}
+	return claims, nil
+}
+
+// ValidateRefreshToken validates a JWT token and only accepts refresh tokens
+func ValidateRefreshToken(tokenString string, secretKey string) (*Claims, error) {
+	claims, err := validateToken(tokenString, secretKey)
+	if err != nil {
+		return nil, err
+	}
+	if claims.TokenType != "refresh" {
+		return nil, fmt.Errorf("%w: expected refresh token", ErrInvalidTokenType)
+	}
 	return claims, nil
 }
