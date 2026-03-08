@@ -65,7 +65,7 @@ func (c *Cache) DeleteByPattern(pattern string) error {
 		return err
 	}
 	if len(keys) > 0 {
-		return c.client.Del(ctx, keys...).Err()
+		return c.client.Unlink(ctx, keys...).Err()
 	}
 	return nil
 }

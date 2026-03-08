@@ -2,15 +2,13 @@ package user
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/upload"
 	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -173,30 +171,6 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 	})
 }
 
-var avatarAllowedMIME = map[string]bool{
-	"image/jpeg": true,
-	"image/png":  true,
-	"image/gif":  true,
-	"image/webp": true,
-}
-
-const avatarMaxSize = 5 * 1024 * 1024 // 5MB
-
-func avatarMimeToExt(mime string) string {
-	switch mime {
-	case "image/jpeg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	case "image/gif":
-		return ".gif"
-	case "image/webp":
-		return ".webp"
-	default:
-		return ".jpg"
-	}
-}
-
 // UploadAvatar godoc
 // @Summary      프로필 이미지 업로드
 // @Description  프로필 이미지를 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
@@ -216,28 +190,24 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
 	}
 
-	file, err := c.FormFile("avatar")
+	fileHeader, err := c.FormFile("avatar")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
 	}
 
-	if file.Size > avatarMaxSize {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_too_large", "파일 크기는 5MB 이하여야 합니다"))
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
 	}
+	defer file.Close()
 
-	contentType := file.Header.Get("Content-Type")
-	if !avatarAllowedMIME[contentType] {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file_type", "허용되는 파일 형식: jpeg, png, gif, webp"))
+	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
 	}
-
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext == "" {
-		ext = avatarMimeToExt(contentType)
-	}
-	filename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
 
 	savePath := filepath.Join(h.uploadDir, filename)
-	if err := c.SaveFile(file, savePath); err != nil {
+	if err := c.SaveFile(fileHeader, savePath); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
 	}
 

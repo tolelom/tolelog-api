@@ -6,12 +6,12 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username" validate:"required,min=4,max=20"`
+	Username string `json:"username" validate:"required,min=4,max=20,alphanum_underscore"`
 	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 
 type RegisterRequest struct {
-	Username string `json:"username" validate:"required,min=4,max=20"`
+	Username string `json:"username" validate:"required,min=4,max=20,alphanum_underscore"`
 	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 

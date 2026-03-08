@@ -27,15 +27,20 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
-// CreateComment verifies the post exists then creates the comment.
+// CreateComment verifies the post exists and is accessible, then creates the comment.
 func (s *service) CreateComment(comment *model.Comment) error {
 	// Verify post exists and is not soft-deleted
-	var count int64
-	if err := s.db.Model(&model.Post{}).Where("id = ? AND deleted_at IS NULL", comment.PostID).Count(&count).Error; err != nil {
+	var post model.Post
+	if err := s.db.Select("id, user_id, is_public").Where("id = ? AND deleted_at IS NULL", comment.PostID).First(&post).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPostNotFound
+		}
 		return err
 	}
-	if count == 0 {
-		return ErrPostNotFound
+
+	// Only allow comments on public posts or by the post author
+	if !post.IsPublic && comment.UserID != post.UserID {
+		return ErrUnauthorized
 	}
 
 	if err := s.db.Create(comment).Error; err != nil {

@@ -32,10 +32,17 @@ const (
 	cacheTTLPost     = 5 * time.Minute
 )
 
+// validSearchPattern allows Unicode letters, numbers, spaces, and common punctuation.
+// Disallows SQL LIKE wildcards (%, _) and special characters that could cause issues.
+var validSearchPattern = regexp.MustCompile(`^[\p{L}\p{N}\s\-_\.\,\!\?\:\;\'\"\(\)]+$`)
+
 // SanitizeSearchQuery validates and sanitizes a search query parameter.
 func SanitizeSearchQuery(query string) (string, error) {
 	query = strings.TrimSpace(query)
 	if len(query) < 2 || len(query) > 100 {
+		return "", ErrInvalidSearchQuery
+	}
+	if !validSearchPattern.MatchString(query) {
 		return "", ErrInvalidSearchQuery
 	}
 	return query, nil
