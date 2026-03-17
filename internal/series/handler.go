@@ -81,11 +81,11 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 
 	responses := make([]dto.SeriesResponse, len(seriesList))
 	for i, s := range seriesList {
-		var count int64
 		responses[i] = dto.SeriesToResponse(&s, 0)
-		// Count posts in this series
-		h.service.(*service).db.Model(&model.Post{}).
-			Where("series_id = ? AND deleted_at IS NULL", s.ID).Count(&count)
+		count, err := h.service.CountPostsInSeries(s.ID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 수 조회에 실패했습니다"))
+		}
 		responses[i].PostCount = int(count)
 	}
 

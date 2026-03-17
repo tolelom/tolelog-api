@@ -25,6 +25,7 @@ type Service interface {
 	RemovePostFromSeries(seriesID uint, postID uint, userID uint) error
 	ReorderPosts(seriesID uint, postIDs []uint, userID uint) error
 	GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error)
+	CountPostsInSeries(seriesID uint) (int64, error)
 }
 
 type service struct {
@@ -183,6 +184,15 @@ func (s *service) ReorderPosts(seriesID uint, postIDs []uint, userID uint) error
 		}
 		return nil
 	})
+}
+
+func (s *service) CountPostsInSeries(seriesID uint) (int64, error) {
+	var count int64
+	if err := s.db.Model(&model.Post{}).
+		Where("series_id = ? AND deleted_at IS NULL", seriesID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (s *service) GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error) {
