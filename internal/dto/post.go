@@ -29,19 +29,22 @@ type PostResponse struct {
 	IsPublic  bool        `json:"is_public"`
 	Tags      string      `json:"tags"`
 	Series    *SeriesInfo `json:"series,omitempty"`
+	ViewCount uint        `json:"view_count"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 type PostListResponse struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	UserID    uint      `json:"user_id"`
-	Author    string    `json:"author"`
-	IsPublic  bool      `json:"is_public"`
-	Tags      string    `json:"tags"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint        `json:"id"`
+	Title     string      `json:"title"`
+	UserID    uint        `json:"user_id"`
+	Author    string      `json:"author"`
+	IsPublic  bool        `json:"is_public"`
+	Tags      string      `json:"tags"`
+	Series    *SeriesInfo `json:"series,omitempty"`
+	ViewCount uint        `json:"view_count"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 type PostListWithPagination struct {
@@ -64,23 +67,25 @@ func tagsToString(tags []model.Tag) string {
 	return strings.Join(names, ",")
 }
 
-func PostToResponse(p *model.Post) PostResponse {
-	author := ""
-	if p.User.ID != 0 {
-		author = p.User.Username
-	}
-
-	var seriesInfo *SeriesInfo
+func postSeriesInfo(p *model.Post) *SeriesInfo {
 	if p.SeriesID != nil && p.Series != nil {
 		order := 0
 		if p.SeriesOrder != nil {
 			order = *p.SeriesOrder
 		}
-		seriesInfo = &SeriesInfo{
+		return &SeriesInfo{
 			SeriesID:    *p.SeriesID,
 			SeriesTitle: p.Series.Title,
 			SeriesOrder: order,
 		}
+	}
+	return nil
+}
+
+func PostToResponse(p *model.Post) PostResponse {
+	author := ""
+	if p.User.ID != 0 {
+		author = p.User.Username
 	}
 
 	return PostResponse{
@@ -91,7 +96,8 @@ func PostToResponse(p *model.Post) PostResponse {
 		Author:    author,
 		IsPublic:  p.IsPublic,
 		Tags:      tagsToString(p.Tags),
-		Series:    seriesInfo,
+		Series:    postSeriesInfo(p),
+		ViewCount: p.ViewCount,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
@@ -110,6 +116,8 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		Author:    author,
 		IsPublic:  p.IsPublic,
 		Tags:      tagsToString(p.Tags),
+		Series:    postSeriesInfo(p),
+		ViewCount: p.ViewCount,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}

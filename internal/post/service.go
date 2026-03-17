@@ -167,6 +167,11 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 			if !post.IsPublic && (userID == nil || *userID != post.UserID) {
 				return nil, ErrUnauthorized
 			}
+			// Increment view count in DB (non-blocking for cached reads)
+			go func() {
+				_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+			}()
+			post.ViewCount++
 			return &post, nil
 		}
 	}
@@ -182,6 +187,10 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	if !post.IsPublic && (userID == nil || *userID != post.UserID) {
 		return nil, ErrUnauthorized
 	}
+
+	// Increment view count
+	_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+	post.ViewCount++
 
 	// Cache the post (regardless of public/private — access control is checked on retrieval)
 	if s.cache != nil {
@@ -228,7 +237,7 @@ func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, 
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Preload("User").Preload("Tags").
+	if err := query.Preload("User").Preload("Tags").Preload("Series").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -276,7 +285,7 @@ func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize 
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Preload("User").Preload("Tags").
+	if err := query.Preload("User").Preload("Tags").Preload("Series").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).
@@ -353,7 +362,7 @@ func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, i
 	}
 
 	offset := (page - 1) * pageSize
-	if err := q.Preload("User").Preload("Tags").
+	if err := q.Preload("User").Preload("Tags").Preload("Series").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(pageSize).

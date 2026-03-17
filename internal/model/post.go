@@ -18,6 +18,7 @@ type Post struct {
 	SeriesID    *uint          `gorm:"index"`
 	SeriesOrder *int           `gorm:"default:null"`
 	Series      *Series        `gorm:"foreignKey:SeriesID" json:"-"`
+	ViewCount   uint           `gorm:"default:0"`
 	CreatedAt   time.Time      `gorm:"autoCreateTime;index"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
