@@ -129,6 +129,8 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	posts.Put("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)     // 글 수정 PUT (인증 필요)
 	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)   // 글 수정 PATCH (인증 필요)
 	posts.Delete("/:id", middleware.AuthMiddleware(cfg), postHandler.DeletePost)  // 글 삭제 (인증 필요)
+	posts.Post("/:id/like", middleware.AuthMiddleware(cfg), postHandler.ToggleLike) // 좋아요 토글 (인증 필요)
+	posts.Get("/:id/like", middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
 
 	// Comment routes
 	posts.Get("/:id/comments", commentHandler.GetComments)                                          // 댓글 목록 조회

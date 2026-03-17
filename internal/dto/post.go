@@ -30,6 +30,7 @@ type PostResponse struct {
 	Tags      string      `json:"tags"`
 	Series    *SeriesInfo `json:"series,omitempty"`
 	ViewCount uint        `json:"view_count"`
+	LikeCount uint        `json:"like_count"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
@@ -43,6 +44,7 @@ type PostListResponse struct {
 	Tags      string      `json:"tags"`
 	Series    *SeriesInfo `json:"series,omitempty"`
 	ViewCount uint        `json:"view_count"`
+	LikeCount uint        `json:"like_count"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
 }
@@ -98,6 +100,7 @@ func PostToResponse(p *model.Post) PostResponse {
 		Tags:      tagsToString(p.Tags),
 		Series:    postSeriesInfo(p),
 		ViewCount: p.ViewCount,
+		LikeCount: p.LikeCount,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
@@ -118,6 +121,7 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		Tags:      tagsToString(p.Tags),
 		Series:    postSeriesInfo(p),
 		ViewCount: p.ViewCount,
+		LikeCount: p.LikeCount,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}

@@ -363,3 +363,49 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 		},
 	})
 }
+
+// ToggleLike toggles a like on a post
+func (h *Handler) ToggleLike(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	}
+
+	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+	}
+
+	liked, likeCount, err := h.service.ToggleLike(uint(postID), userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("like_failed", "좋아요 처리에 실패했습니다"))
+	}
+
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: fiber.Map{
+			"liked":      liked,
+			"like_count": likeCount,
+		},
+	})
+}
+
+// GetLikeStatus checks if the current user liked a post
+func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
+	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+	}
+
+	liked := false
+	if userID, ok := c.Locals("userID").(uint); ok {
+		liked = h.service.IsLiked(uint(postID), userID)
+	}
+
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: fiber.Map{
+			"liked": liked,
+		},
+	})
+}

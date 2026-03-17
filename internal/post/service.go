@@ -71,6 +71,8 @@ type Service interface {
 	UpdatePost(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error)
 	DeletePost(postID uint, userID uint) error
 	SearchPosts(query string, page, pageSize int) ([]model.Post, int64, error)
+	ToggleLike(postID uint, userID uint) (liked bool, likeCount uint, err error)
+	IsLiked(postID uint, userID uint) bool
 }
 
 type service struct {
@@ -394,4 +396,42 @@ func (s *service) DeletePost(postID uint, userID uint) error {
 	s.invalidatePostCaches(postID)
 
 	return nil
+}
+
+// ToggleLike toggles a like for a post. Returns the new liked state and total like count.
+func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
+	var existing model.PostLike
+	err := s.db.Where("post_id = ? AND user_id = ?", postID, userID).First(&existing).Error
+
+	if err == nil {
+		// Already liked → unlike
+		if err := s.db.Delete(&existing).Error; err != nil {
+			return false, 0, err
+		}
+		_ = s.db.Model(&model.Post{}).Where("id = ? AND like_count > 0", postID).
+			UpdateColumn("like_count", gorm.Expr("like_count - 1")).Error
+	} else {
+		// Not liked → like
+		like := model.PostLike{PostID: postID, UserID: userID}
+		if err := s.db.Create(&like).Error; err != nil {
+			return false, 0, err
+		}
+		_ = s.db.Model(&model.Post{}).Where("id = ?", postID).
+			UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error
+	}
+
+	// Get updated count
+	var post model.Post
+	s.db.Select("like_count").First(&post, postID)
+
+	s.invalidatePostCaches(postID)
+
+	return err != nil, post.LikeCount, nil // err != nil means it was not found (= we created a new like)
+}
+
+// IsLiked checks if a user has liked a post.
+func (s *service) IsLiked(postID uint, userID uint) bool {
+	var count int64
+	s.db.Model(&model.PostLike{}).Where("post_id = ? AND user_id = ?", postID, userID).Count(&count)
+	return count > 0
 }
