@@ -14,8 +14,11 @@ type Post struct {
 	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 	IsPublic  bool           `gorm:"default:true;index;index:idx_user_public,priority:2"`
 	TagsRaw   string         `gorm:"column:tags;size:500;default:''"`
-	Tags      []Tag          `gorm:"many2many:post_tags;" json:"-"`
-	CreatedAt time.Time      `gorm:"autoCreateTime;index"`
+	Tags        []Tag          `gorm:"many2many:post_tags;" json:"-"`
+	SeriesID    *uint          `gorm:"index"`
+	SeriesOrder *int           `gorm:"default:null"`
+	Series      *Series        `gorm:"foreignKey:SeriesID" json:"-"`
+	CreatedAt   time.Time      `gorm:"autoCreateTime;index"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }

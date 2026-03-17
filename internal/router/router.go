@@ -10,6 +10,7 @@ import (
 	"tolelom_api/internal/image"
 	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/post"
+	"tolelom_api/internal/series"
 	"tolelom_api/internal/user"
 
 	"github.com/gofiber/fiber/v2"
@@ -77,6 +78,9 @@ func Setup(app *fiber.App, cfg *config.Config) {
 
 	imageHandler := image.NewHandler(cfg.UploadDir)
 
+	seriesService := series.NewService(cfg.DB)
+	seriesHandler := series.NewHandler(seriesService)
+
 	// Health check
 	// @Summary		Health Check
 	// @Description	서버의 health 상태를 반환합니다
@@ -131,9 +135,23 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	posts.Post("/:id/comments", middleware.AuthMiddleware(cfg), commentHandler.CreateComment)        // 댓글 작성 (인증 필요)
 	posts.Delete("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요)
 
+	// Series navigation (under posts)
+	posts.Get("/:id/series-nav", seriesHandler.GetSeriesNavigation)
+
+	// Series routes
+	seriesGroup := api.Group("/series")
+	seriesGroup.Get("/:id", seriesHandler.GetSeries)
+	seriesGroup.Post("", middleware.AuthMiddleware(cfg), seriesHandler.CreateSeries)
+	seriesGroup.Put("/:id", middleware.AuthMiddleware(cfg), seriesHandler.UpdateSeries)
+	seriesGroup.Delete("/:id", middleware.AuthMiddleware(cfg), seriesHandler.DeleteSeries)
+	seriesGroup.Post("/:id/posts", middleware.AuthMiddleware(cfg), seriesHandler.AddPostToSeries)
+	seriesGroup.Delete("/:id/posts/:post_id", middleware.AuthMiddleware(cfg), seriesHandler.RemovePostFromSeries)
+	seriesGroup.Put("/:id/reorder", middleware.AuthMiddleware(cfg), seriesHandler.ReorderPosts)
+
 	// User routes
 	users := api.Group("/users")
 	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar) // 프로필 이미지 업로드 (인증 필요)
 	users.Get("/:user_id", userHandler.GetProfile)                                // 사용자 프로필
+	users.Get("/:user_id/series", seriesHandler.GetUserSeries)                    // 사용자 시리즈 목록
 	users.Get("/:user_id/posts", middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
 }

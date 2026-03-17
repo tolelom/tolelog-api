@@ -102,7 +102,7 @@ func (c *Config) InitDataBase() error {
 	slog.Info("Database 연결 성공")
 
 	// DB Migration
-	if err := database.AutoMigrate(&model.User{}, &model.Post{}, &model.Tag{}, &model.Comment{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.Post{}, &model.Tag{}, &model.Comment{}, &model.Series{}); err != nil {
 		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
 	}
 

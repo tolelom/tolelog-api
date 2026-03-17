@@ -172,7 +172,7 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	}
 
 	var post model.Post
-	if err := s.db.Preload("User").Preload("Tags").First(&post, postID).Error; err != nil {
+	if err := s.db.Preload("User").Preload("Tags").Preload("Series").First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrPostNotFound
 		}

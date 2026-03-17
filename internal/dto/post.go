@@ -21,15 +21,16 @@ type UpdatePostRequest struct {
 }
 
 type PostResponse struct {
-	ID        uint      `json:"id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	UserID    uint      `json:"user_id"`
-	Author    string    `json:"author"`
-	IsPublic  bool      `json:"is_public"`
-	Tags      string    `json:"tags"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint        `json:"id"`
+	Title     string      `json:"title"`
+	Content   string      `json:"content"`
+	UserID    uint        `json:"user_id"`
+	Author    string      `json:"author"`
+	IsPublic  bool        `json:"is_public"`
+	Tags      string      `json:"tags"`
+	Series    *SeriesInfo `json:"series,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 type PostListResponse struct {
@@ -69,6 +70,19 @@ func PostToResponse(p *model.Post) PostResponse {
 		author = p.User.Username
 	}
 
+	var seriesInfo *SeriesInfo
+	if p.SeriesID != nil && p.Series != nil {
+		order := 0
+		if p.SeriesOrder != nil {
+			order = *p.SeriesOrder
+		}
+		seriesInfo = &SeriesInfo{
+			SeriesID:    *p.SeriesID,
+			SeriesTitle: p.Series.Title,
+			SeriesOrder: order,
+		}
+	}
+
 	return PostResponse{
 		ID:        p.ID,
 		Title:     p.Title,
@@ -77,6 +91,7 @@ func PostToResponse(p *model.Post) PostResponse {
 		Author:    author,
 		IsPublic:  p.IsPublic,
 		Tags:      tagsToString(p.Tags),
+		Series:    seriesInfo,
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
