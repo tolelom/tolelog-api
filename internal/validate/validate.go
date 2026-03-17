@@ -12,7 +12,7 @@ var (
 )
 
 func init() {
-	v.RegisterValidation("alphanum_underscore", func(fl validator.FieldLevel) bool {
+	_ = v.RegisterValidation("alphanum_underscore", func(fl validator.FieldLevel) bool {
 		return alphanumUnderscoreRegexp.MatchString(fl.Field().String())
 	})
 }

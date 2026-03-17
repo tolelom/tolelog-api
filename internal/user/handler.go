@@ -199,7 +199,7 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
 	if err != nil {
