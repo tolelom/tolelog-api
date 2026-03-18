@@ -1,10 +1,29 @@
 package dto
 
 import (
+	"regexp"
 	"strings"
 	"time"
 	"tolelom_api/internal/model"
 )
+
+const excerptMaxLen = 200
+
+var markdownRe = regexp.MustCompile(`(?m)^#{1,6}\s+|[*_~` + "`" + `\[\]()!>|]|\{[^}]*\}`)
+
+func stripMarkdown(text string) string {
+	result := markdownRe.ReplaceAllString(text, "")
+	result = strings.ReplaceAll(result, "\n", " ")
+	return strings.Join(strings.Fields(result), " ")
+}
+
+func makeExcerpt(content string) string {
+	plain := stripMarkdown(content)
+	if len([]rune(plain)) <= excerptMaxLen {
+		return plain
+	}
+	return string([]rune(plain)[:excerptMaxLen]) + "..."
+}
 
 type CreatePostRequest struct {
 	Title    string `json:"title" validate:"required,min=1,max=255"`
@@ -38,6 +57,7 @@ type PostResponse struct {
 type PostListResponse struct {
 	ID        uint        `json:"id"`
 	Title     string      `json:"title"`
+	Excerpt   string      `json:"excerpt"`
 	UserID    uint        `json:"user_id"`
 	Author    string      `json:"author"`
 	IsPublic  bool        `json:"is_public"`
@@ -115,6 +135,7 @@ func PostToListResponse(p *model.Post) PostListResponse {
 	return PostListResponse{
 		ID:        p.ID,
 		Title:     p.Title,
+		Excerpt:   makeExcerpt(p.Content),
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,

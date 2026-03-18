@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.claude
+.env
+.env_example
+.gitignore
+*.md
+docs/
+uploads/
+*.test
+*.out
+go.sum
+go.mod
+cmd/
+internal/

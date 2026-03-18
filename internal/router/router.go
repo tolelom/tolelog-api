@@ -7,8 +7,10 @@ import (
 	"tolelom_api/internal/comment"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/feed"
 	"tolelom_api/internal/image"
 	"tolelom_api/internal/middleware"
+	"tolelom_api/internal/sitemap"
 	"tolelom_api/internal/post"
 	"tolelom_api/internal/series"
 	"tolelom_api/internal/user"
@@ -81,6 +83,9 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	seriesService := series.NewService(cfg.DB)
 	seriesHandler := series.NewHandler(seriesService)
 
+	feedHandler := feed.NewHandler(postService)
+	sitemapHandler := sitemap.NewHandler(cfg.DB)
+
 	// Health check
 	// @Summary		Health Check
 	// @Description	서버의 health 상태를 반환합니다
@@ -94,6 +99,12 @@ func Setup(app *fiber.App, cfg *config.Config) {
 			Message: "Server is running",
 		})
 	})
+
+	// RSS 피드
+	app.Get("/feed", feedHandler.Feed)
+
+	// SEO 사이트맵
+	app.Get("/sitemap.xml", sitemapHandler.Sitemap)
 
 	// Swagger: 개발 환경에서만 노출
 	if cfg.Environment != "production" {
