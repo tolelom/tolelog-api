@@ -74,19 +74,14 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 사용자 ID입니다"))
 	}
 
-	seriesList, err := h.service.GetSeriesByUserID(uint(userID))
+	seriesList, postCounts, err := h.service.GetSeriesByUserID(uint(userID))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 목록 조회에 실패했습니다"))
 	}
 
 	responses := make([]dto.SeriesResponse, len(seriesList))
 	for i, s := range seriesList {
-		responses[i] = dto.SeriesToResponse(&s, 0)
-		count, err := h.service.CountPostsInSeries(s.ID)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 수 조회에 실패했습니다"))
-		}
-		responses[i].PostCount = int(count)
+		responses[i] = dto.SeriesToResponse(&s, int(postCounts[s.ID]))
 	}
 
 	return c.JSON(dto.SuccessResponse{

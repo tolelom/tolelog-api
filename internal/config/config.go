@@ -78,8 +78,13 @@ func (c *Config) InitDataBase() error {
 		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName,
 	)
 
+	logLevel := logger.Info
+	if c.Environment == "production" {
+		logLevel = logger.Warn
+	}
+
 	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logLevel),
 	})
 	if err != nil {
 		return fmt.Errorf("MySQL 연결에 실패했습니다: %w", err)

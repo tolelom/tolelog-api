@@ -331,18 +331,26 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 		return nil, ErrNoFieldsToUpdate
 	}
 
-	if err := s.db.Model(&post).Updates(updates).Error; err != nil {
-		return nil, err
-	}
-
-	// Sync tags if tags were updated
-	if req.Tags != nil {
-		if err := s.syncTags(s.db, &post, *req.Tags); err != nil {
-			return nil, err
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&post).Updates(updates).Error; err != nil {
+			return err
 		}
-	}
 
-	if err := s.db.Preload("User").Preload("Tags").First(&post, postID).Error; err != nil {
+		// Sync tags if tags were updated
+		if req.Tags != nil {
+			if err := s.syncTags(tx, &post, *req.Tags); err != nil {
+				return err
+			}
+		}
+
+		// Reload with User and Tags
+		if err := tx.Preload("User").Preload("Tags").First(&post, postID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -400,33 +408,53 @@ func (s *service) DeletePost(postID uint, userID uint) error {
 
 // ToggleLike toggles a like for a post. Returns the new liked state and total like count.
 func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
-	var existing model.PostLike
-	err := s.db.Where("post_id = ? AND user_id = ?", postID, userID).First(&existing).Error
+	var liked bool
+	var likeCount uint
 
-	if err == nil {
-		// Already liked → unlike
-		if err := s.db.Delete(&existing).Error; err != nil {
-			return false, 0, err
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var existing model.PostLike
+		findErr := tx.Where("post_id = ? AND user_id = ?", postID, userID).First(&existing).Error
+
+		if findErr == nil {
+			// Already liked → unlike
+			if err := tx.Delete(&existing).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.Post{}).Where("id = ? AND like_count > 0", postID).
+				UpdateColumn("like_count", gorm.Expr("like_count - 1")).Error; err != nil {
+				return err
+			}
+			liked = false
+		} else if errors.Is(findErr, gorm.ErrRecordNotFound) {
+			// Not liked → like
+			like := model.PostLike{PostID: postID, UserID: userID}
+			if err := tx.Create(&like).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&model.Post{}).Where("id = ?", postID).
+				UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error; err != nil {
+				return err
+			}
+			liked = true
+		} else {
+			return findErr
 		}
-		_ = s.db.Model(&model.Post{}).Where("id = ? AND like_count > 0", postID).
-			UpdateColumn("like_count", gorm.Expr("like_count - 1")).Error
-	} else {
-		// Not liked → like
-		like := model.PostLike{PostID: postID, UserID: userID}
-		if err := s.db.Create(&like).Error; err != nil {
-			return false, 0, err
+
+		// Get updated count within transaction
+		var post model.Post
+		if err := tx.Select("like_count").First(&post, postID).Error; err != nil {
+			return err
 		}
-		_ = s.db.Model(&model.Post{}).Where("id = ?", postID).
-			UpdateColumn("like_count", gorm.Expr("like_count + 1")).Error
+		likeCount = post.LikeCount
+		return nil
+	})
+	if err != nil {
+		return false, 0, err
 	}
-
-	// Get updated count
-	var post model.Post
-	s.db.Select("like_count").First(&post, postID)
 
 	s.invalidatePostCaches(postID)
 
-	return err != nil, post.LikeCount, nil // err != nil means it was not found (= we created a new like)
+	return liked, likeCount, nil
 }
 
 // IsLiked checks if a user has liked a post.

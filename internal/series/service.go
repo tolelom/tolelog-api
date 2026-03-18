@@ -18,7 +18,7 @@ var (
 type Service interface {
 	CreateSeries(series *model.Series) error
 	GetSeriesByID(seriesID uint) (*model.Series, []model.Post, error)
-	GetSeriesByUserID(userID uint) ([]model.Series, error)
+	GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error)
 	UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error)
 	DeleteSeries(seriesID uint, userID uint) error
 	AddPostToSeries(seriesID uint, postID uint, order int, userID uint) error
@@ -60,13 +60,39 @@ func (s *service) GetSeriesByID(seriesID uint) (*model.Series, []model.Post, err
 	return &series, posts, nil
 }
 
-func (s *service) GetSeriesByUserID(userID uint) ([]model.Series, error) {
+func (s *service) GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error) {
 	var seriesList []model.Series
 	if err := s.db.Preload("User").Where("user_id = ?", userID).
 		Order("created_at DESC").Find(&seriesList).Error; err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return seriesList, nil
+
+	// Batch count posts per series in a single query
+	postCounts := make(map[uint]int64, len(seriesList))
+	if len(seriesList) > 0 {
+		seriesIDs := make([]uint, len(seriesList))
+		for i, ser := range seriesList {
+			seriesIDs[i] = ser.ID
+		}
+
+		type countResult struct {
+			SeriesID uint
+			Count    int64
+		}
+		var results []countResult
+		if err := s.db.Model(&model.Post{}).
+			Select("series_id, COUNT(*) as count").
+			Where("series_id IN ? AND deleted_at IS NULL", seriesIDs).
+			Group("series_id").
+			Find(&results).Error; err != nil {
+			return nil, nil, err
+		}
+		for _, r := range results {
+			postCounts[r.SeriesID] = r.Count
+		}
+	}
+
+	return seriesList, postCounts, nil
 }
 
 func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error) {
