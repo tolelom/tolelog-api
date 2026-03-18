@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   lint:
@@ -25,6 +28,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: lint
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
@@ -34,10 +40,35 @@ jobs:
         with:
           go-version: '1.25.x'
 
-      - name: 테스트 실행
-        run: go test -v -cover ./...
+      - name: 테스트 실행 (커버리지 포함)
+        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: 커버리지 요약 생성
+        run: |
+          echo '## Backend 테스트 커버리지 리포트' > coverage-summary.md
+          echo '' >> coverage-summary.md
+          echo '```' >> coverage-summary.md
+          go tool cover -func=coverage.out >> coverage-summary.md
+          echo '```' >> coverage-summary.md
+          echo '' >> coverage-summary.md
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "**총 커버리지: ${TOTAL}**" >> coverage-summary.md
+
+      - name: PR에 커버리지 코멘트
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: backend-coverage
+          path: coverage-summary.md
+
+      - name: 커버리지 리포트 업로드
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.out
 
   build-deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [lint, test]
     permissions:

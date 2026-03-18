@@ -146,6 +146,7 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	// Comment routes
 	posts.Get("/:id/comments", commentHandler.GetComments)                                          // 댓글 목록 조회
 	posts.Post("/:id/comments", middleware.AuthMiddleware(cfg), commentHandler.CreateComment)        // 댓글 작성 (인증 필요)
+	posts.Put("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)    // 댓글 수정 (인증 필요)
 	posts.Delete("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요)
 
 	// Series navigation (under posts)
