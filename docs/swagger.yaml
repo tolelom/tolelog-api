@@ -1,24 +1,1550 @@
+basePath: /api/v1
 definitions:
-  handler.HealthResponse:
+  dto.AddPostToSeriesRequest:
     properties:
+      order:
+        type: integer
+      post_id:
+        type: integer
+    required:
+    - post_id
+    type: object
+  dto.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        maxLength: 128
+        minLength: 6
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  dto.CreateCommentRequest:
+    properties:
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+      parent_id:
+        type: integer
+    required:
+    - content
+    type: object
+  dto.CreatePostRequest:
+    properties:
+      content:
+        maxLength: 500000
+        minLength: 1
+        type: string
+      is_public:
+        type: boolean
       status:
-        example: ok
+        type: string
+      tags:
+        maxLength: 500
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - content
+    - title
+    type: object
+  dto.CreateSeriesRequest:
+    properties:
+      description:
+        maxLength: 2000
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - title
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+      status:
         type: string
     type: object
+  dto.LoginRequest:
+    properties:
+      password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      username:
+        maxLength: 20
+        minLength: 4
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.Pagination:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.PostListResponse:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      excerpt:
+        type: string
+      id:
+        type: integer
+      is_public:
+        type: boolean
+      like_count:
+        type: integer
+      series:
+        $ref: '#/definitions/dto.SeriesInfo'
+      status:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      view_count:
+        type: integer
+    type: object
+  dto.PostListWithPagination:
+    properties:
+      pagination:
+        $ref: '#/definitions/dto.Pagination'
+      posts:
+        items:
+          $ref: '#/definitions/dto.PostListResponse'
+        type: array
+    type: object
+  dto.PostResponse:
+    properties:
+      author:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_public:
+        type: boolean
+      like_count:
+        type: integer
+      series:
+        $ref: '#/definitions/dto.SeriesInfo'
+      status:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+      view_count:
+        type: integer
+    type: object
+  dto.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  dto.RegisterRequest:
+    properties:
+      password:
+        maxLength: 128
+        minLength: 6
+        type: string
+      username:
+        maxLength: 20
+        minLength: 4
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  dto.ReorderPostsRequest:
+    properties:
+      post_ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - post_ids
+    type: object
+  dto.SeriesInfo:
+    properties:
+      series_id:
+        type: integer
+      series_order:
+        type: integer
+      series_title:
+        type: string
+    type: object
+  dto.SuccessResponse:
+    properties:
+      data: {}
+      status:
+        type: string
+    type: object
+  dto.UpdateCommentRequest:
+    properties:
+      content:
+        maxLength: 2000
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
+  dto.UpdatePostRequest:
+    properties:
+      content:
+        maxLength: 500000
+        minLength: 1
+        type: string
+      is_public:
+        type: boolean
+      status:
+        type: string
+      tags:
+        maxLength: 500
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    type: object
+  dto.UpdateSeriesRequest:
+    properties:
+      description:
+        maxLength: 2000
+        type: string
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    type: object
+  dto.UserResponse:
+    properties:
+      avatar_url:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      last_login:
+        type: string
+      username:
+        type: string
+    type: object
+host: tolelom.xyz
 info:
   contact: {}
+  description: Tolelog 블로그 플랫폼의 REST API 서버
+  title: Tolelog API
+  version: "1.0"
 paths:
-  /health:
-    get:
-      description: Returns the health status of the server
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 사용자명과 비밀번호로 로그인합니다
+      parameters:
+      - description: 로그인 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.HealthResponse'
-      summary: Health Check
+            $ref: '#/definitions/dto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 로그인
       tags:
-      - health
+      - Auth
+  /auth/logout:
+    post:
+      description: 리프레시 토큰을 무효화합니다
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 로그아웃
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 리프레시 토큰으로 새로운 액세스 토큰과 리프레시 토큰을 발급합니다
+      parameters:
+      - description: 리프레시 토큰
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 토큰 갱신
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 새로운 사용자를 등록합니다
+      parameters:
+      - description: 회원가입 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 회원가입
+      tags:
+      - Auth
+  /drafts:
+    get:
+      description: 현재 로그인한 사용자의 초안 글 목록을 조회합니다
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 내 초안 목록 조회
+      tags:
+      - Posts
+  /feed:
+    get:
+      description: 공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)
+      produces:
+      - text/xml
+      responses:
+        "200":
+          description: RSS 2.0 XML
+          schema:
+            type: string
+      summary: RSS 피드
+      tags:
+      - Feed
+  /posts:
+    get:
+      description: 공개된 모든 글을 페이지네이션으로 조회합니다
+      parameters:
+      - description: '페이지 번호 (기본값: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: '페이지 크기 (기본값: 10)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostListWithPagination'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 공개 글 목록 조회
+      tags:
+      - Posts
+    post:
+      consumes:
+      - application/json
+      description: 사용자가 새로운 글을 작성합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 글 내용
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 새 글 생성
+      tags:
+      - Posts
+  /posts/{id}:
+    delete:
+      description: 작성자가 글을 삭제합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 글 삭제
+      tags:
+      - Posts
+    get:
+      description: ID로 글을 조회합니다. 공개 글은 누구나, 비공개 글은 작성자만 조회 가능합니다.
+      parameters:
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Bearer token (비공개 글 조회 시 필요)
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 글 상세 조회
+      tags:
+      - Posts
+    put:
+      consumes:
+      - application/json
+      description: 작성자가 글을 수정합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 수정할 내용
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 글 수정
+      tags:
+      - Posts
+  /posts/{id}/comments:
+    get:
+      description: 게시글의 댓글 목록을 트리 구조로 조회합니다
+      parameters:
+      - description: 게시글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 댓글 목록 조회
+      tags:
+      - Comments
+    post:
+      consumes:
+      - application/json
+      description: 게시글에 댓글을 작성합니다. parent_id를 지정하면 대댓글이 됩니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 게시글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 댓글 내용
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 댓글 작성
+      tags:
+      - Comments
+  /posts/{id}/comments/{comment_id}:
+    delete:
+      description: 작성자가 댓글을 삭제합니다. 하위 대댓글은 유지됩니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 게시글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 댓글 ID
+        in: path
+        name: comment_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 댓글 삭제
+      tags:
+      - Comments
+    put:
+      consumes:
+      - application/json
+      description: 작성자가 댓글을 수정합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 게시글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 댓글 ID
+        in: path
+        name: comment_id
+        required: true
+        type: integer
+      - description: 수정할 댓글 내용
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 댓글 수정
+      tags:
+      - Comments
+  /posts/{id}/like:
+    get:
+      description: 현재 사용자가 해당 게시글을 좋아요했는지 확인합니다
+      parameters:
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Bearer token (로그인 시)
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 좋아요 상태 조회
+      tags:
+      - Posts
+    post:
+      description: 게시글의 좋아요를 토글합니다. 이미 좋아요한 경우 취소, 아닌 경우 추가됩니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 좋아요 토글
+      tags:
+      - Posts
+  /posts/{id}/series-nav:
+    get:
+      description: 게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다
+      parameters:
+      - description: 게시글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 시리즈 네비게이션 조회
+      tags:
+      - Series
+  /posts/search:
+    get:
+      description: 제목 또는 본문에서 키워드로 공개 글을 검색합니다
+      parameters:
+      - description: 검색어 (2~100자)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: '페이지 번호 (기본값: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: '페이지 크기 (기본값: 10)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostListWithPagination'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 글 검색
+      tags:
+      - Posts
+  /series:
+    post:
+      consumes:
+      - application/json
+      description: 새로운 시리즈를 생성합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateSeriesRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈 생성
+      tags:
+      - Series
+  /series/{id}:
+    delete:
+      description: 작성자가 시리즈를 삭제합니다. 포함된 글은 삭제되지 않습니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈 삭제
+      tags:
+      - Series
+    get:
+      description: 시리즈 ID로 시리즈 상세 정보와 포함된 글 목록을 조회합니다
+      parameters:
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 시리즈 상세 조회
+      tags:
+      - Series
+    put:
+      consumes:
+      - application/json
+      description: 작성자가 시리즈 정보를 수정합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 수정할 시리즈 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateSeriesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈 수정
+      tags:
+      - Series
+  /series/{id}/posts:
+    post:
+      consumes:
+      - application/json
+      description: 시리즈에 글을 추가합니다. 시리즈와 글 모두 본인 소유여야 합니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 추가할 글 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AddPostToSeriesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈에 글 추가
+      tags:
+      - Series
+  /series/{id}/posts/{post_id}:
+    delete:
+      description: 시리즈에서 글을 제거합니다. 글 자체는 삭제되지 않습니다.
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 게시글 ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈에서 글 제거
+      tags:
+      - Series
+  /series/{id}/reorder:
+    put:
+      consumes:
+      - application/json
+      description: 시리즈에 포함된 글의 순서를 변경합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 시리즈 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 새로운 글 순서
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ReorderPostsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 시리즈 글 순서 변경
+      tags:
+      - Series
+  /sitemap.xml:
+    get:
+      description: 공개 글과 시리즈의 URL을 XML 사이트맵 형식으로 반환합니다
+      produces:
+      - text/xml
+      responses:
+        "200":
+          description: XML Sitemap
+          schema:
+            type: string
+      summary: XML 사이트맵
+      tags:
+      - SEO
+  /tags:
+    get:
+      description: 공개 글에 사용된 태그 목록을 사용 횟수와 함께 반환합니다
+      parameters:
+      - description: '정렬 기준: popular(기본) 또는 name'
+        in: query
+        name: sort
+        type: string
+      - description: 최대 반환 개수 (기본 50, 최대 200)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 태그 목록 조회
+      tags:
+      - Tags
+  /upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 이미지 파일을 서버에 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
+      parameters:
+      - description: 업로드할 이미지 파일
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 이미지 업로드
+      tags:
+      - Upload
+  /users/{user_id}:
+    get:
+      description: 유저 ID로 프로필 정보를 조회합니다
+      parameters:
+      - description: 유저 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 유저 프로필 조회
+      tags:
+      - Users
+  /users/{user_id}/posts:
+    get:
+      description: 특정 사용자의 모든 글을 조회합니다
+      parameters:
+      - description: 사용자 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: '페이지 번호 (기본값: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: '페이지 크기 (기본값: 10)'
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.PostListWithPagination'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 사용자 글 목록 조회
+      tags:
+      - Posts
+  /users/{user_id}/series:
+    get:
+      description: 특정 사용자의 시리즈 목록을 조회합니다
+      parameters:
+      - description: 사용자 ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 사용자 시리즈 목록 조회
+      tags:
+      - Series
+  /users/avatar:
+    put:
+      consumes:
+      - multipart/form-data
+      description: 프로필 이미지를 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
+      parameters:
+      - description: 프로필 이미지 파일
+        in: formData
+        name: avatar
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 프로필 이미지 업로드
+      tags:
+      - Users
+  /users/me:
+    delete:
+      description: 현재 로그인한 사용자의 계정과 모든 데이터를 삭제합니다
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 계정 삭제
+      tags:
+      - Users
+  /users/password:
+    put:
+      consumes:
+      - application/json
+      description: 현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 비밀번호 변경 정보
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: 비밀번호 변경
+      tags:
+      - Users
+securityDefinitions:
+  BearerAuth:
+    description: 'Bearer 토큰을 입력하세요 (예: Bearer eyJhbGciOi...)'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

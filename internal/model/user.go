@@ -9,4 +9,5 @@ type User struct {
 	AvatarURL    string `gorm:"size:500;default:''"`
 	CreatedAt    time.Time
 	LastLogin    time.Time
+	TokenVersion int `gorm:"default:0"`
 }

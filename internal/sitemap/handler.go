@@ -4,10 +4,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"time"
-	"tolelom_api/internal/model"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 const siteURL = "https://tolelom.xyz"
@@ -15,8 +13,8 @@ const siteURL = "https://tolelom.xyz"
 // XML Sitemap structs (sitemaps.org protocol)
 
 type urlSet struct {
-	XMLName xml.Name  `xml:"urlset"`
-	XMLNS   string    `xml:"xmlns,attr"`
+	XMLName xml.Name   `xml:"urlset"`
+	XMLNS   string     `xml:"xmlns,attr"`
 	URLs    []siteURL_ `xml:"url"`
 }
 
@@ -25,18 +23,24 @@ type siteURL_ struct {
 	LastMod string `xml:"lastmod,omitempty"`
 }
 
-type Handler struct {
-	db *gorm.DB
-}
-
-func NewHandler(db *gorm.DB) *Handler {
-	return &Handler{db: db}
-}
-
-// sitemapEntry holds minimal data for sitemap generation.
-type sitemapEntry struct {
+// Entry holds minimal data for sitemap generation.
+type Entry struct {
 	ID        uint
 	UpdatedAt time.Time
+}
+
+// Repository abstracts DB access for sitemap generation.
+type Repository interface {
+	GetPublicPostEntries() ([]Entry, error)
+	GetSeriesEntries() ([]Entry, error)
+}
+
+type Handler struct {
+	repo Repository
+}
+
+func NewHandler(repo Repository) *Handler {
+	return &Handler{repo: repo}
 }
 
 // Sitemap godoc
@@ -51,16 +55,10 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		{Loc: siteURL, LastMod: time.Now().Format(time.DateOnly)},
 	}
 
-	// Public posts
-	var posts []sitemapEntry
-	if err := h.db.Model(&model.Post{}).
-		Select("id, updated_at").
-		Where("is_public = ? AND deleted_at IS NULL", true).
-		Order("updated_at DESC").
-		Find(&posts).Error; err != nil {
+	posts, err := h.repo.GetPublicPostEntries()
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
-
 	for _, p := range posts {
 		urls = append(urls, siteURL_{
 			Loc:     fmt.Sprintf("%s/post/%d", siteURL, p.ID),
@@ -68,16 +66,10 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		})
 	}
 
-	// Series
-	var seriesList []sitemapEntry
-	if err := h.db.Model(&model.Series{}).
-		Select("id, updated_at").
-		Where("deleted_at IS NULL").
-		Order("updated_at DESC").
-		Find(&seriesList).Error; err != nil {
+	seriesList, err := h.repo.GetSeriesEntries()
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
-
 	for _, s := range seriesList {
 		urls = append(urls, siteURL_{
 			Loc:     fmt.Sprintf("%s/series/%d", siteURL, s.ID),

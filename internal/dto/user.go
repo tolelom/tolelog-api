@@ -33,6 +33,11 @@ type UserResponse struct {
 	LastLogin time.Time `json:"last_login"`
 }
 
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=6,max=128"`
+}
+
 func UserToResponse(u *model.User) UserResponse {
 	return UserResponse{
 		ID:        u.ID,

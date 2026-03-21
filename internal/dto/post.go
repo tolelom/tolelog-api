@@ -1,24 +1,16 @@
 package dto
 
 import (
-	"regexp"
 	"strings"
 	"time"
 	"tolelom_api/internal/model"
+	"tolelom_api/internal/utils"
 )
 
 const excerptMaxLen = 200
 
-var markdownRe = regexp.MustCompile(`(?m)^#{1,6}\s+|[*_~` + "`" + `\[\]()!>|]|\{[^}]*\}`)
-
-func stripMarkdown(text string) string {
-	result := markdownRe.ReplaceAllString(text, "")
-	result = strings.ReplaceAll(result, "\n", " ")
-	return strings.Join(strings.Fields(result), " ")
-}
-
 func makeExcerpt(content string) string {
-	plain := stripMarkdown(content)
+	plain := utils.StripMarkdown(content)
 	if len([]rune(plain)) <= excerptMaxLen {
 		return plain
 	}
@@ -30,6 +22,7 @@ type CreatePostRequest struct {
 	Content  string `json:"content" validate:"required,min=1,max=500000"`
 	IsPublic bool   `json:"is_public"`
 	Tags     string `json:"tags" validate:"max=500"`
+	Status   string `json:"status"`
 }
 
 type UpdatePostRequest struct {
@@ -37,6 +30,7 @@ type UpdatePostRequest struct {
 	Content  *string `json:"content" validate:"omitempty,min=1,max=500000"`
 	IsPublic *bool   `json:"is_public"`
 	Tags     *string `json:"tags" validate:"omitempty,max=500"`
+	Status   *string `json:"status"`
 }
 
 type PostResponse struct {
@@ -46,6 +40,7 @@ type PostResponse struct {
 	UserID    uint        `json:"user_id"`
 	Author    string      `json:"author"`
 	IsPublic  bool        `json:"is_public"`
+	Status    string      `json:"status"`
 	Tags      string      `json:"tags"`
 	Series    *SeriesInfo `json:"series,omitempty"`
 	ViewCount uint        `json:"view_count"`
@@ -61,6 +56,7 @@ type PostListResponse struct {
 	UserID    uint        `json:"user_id"`
 	Author    string      `json:"author"`
 	IsPublic  bool        `json:"is_public"`
+	Status    string      `json:"status"`
 	Tags      string      `json:"tags"`
 	Series    *SeriesInfo `json:"series,omitempty"`
 	ViewCount uint        `json:"view_count"`
@@ -117,6 +113,7 @@ func PostToResponse(p *model.Post) PostResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
+		Status:    p.Status,
 		Tags:      tagsToString(p.Tags),
 		Series:    postSeriesInfo(p),
 		ViewCount: p.ViewCount,
@@ -139,6 +136,7 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		UserID:    p.UserID,
 		Author:    author,
 		IsPublic:  p.IsPublic,
+		Status:    p.Status,
 		Tags:      tagsToString(p.Tags),
 		Series:    postSeriesInfo(p),
 		ViewCount: p.ViewCount,

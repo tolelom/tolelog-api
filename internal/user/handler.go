@@ -125,6 +125,9 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 
 	authResp, err := h.authService.RefreshTokens(req.RefreshToken)
 	if err != nil {
+		if errors.Is(err, ErrInvalidRefreshToken) {
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_refresh_token", "무효화된 리프레시 토큰입니다"))
+		}
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_refresh_token", "유효하지 않은 리프레시 토큰입니다"))
 	}
 
@@ -222,4 +225,96 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 			"avatar_url": avatarURL,
 		},
 	})
+}
+
+// ChangePassword godoc
+// @Summary      비밀번호 변경
+// @Description  현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                       true  "Bearer token"
+// @Param        body           body    dto.ChangePasswordRequest    true  "비밀번호 변경 정보"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users/password [put]
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	}
+
+	var req dto.ChangePasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
+	}
+	if err := validate.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	}
+
+	if err := h.authService.ChangePassword(userID, &req); err != nil {
+		if errors.Is(err, ErrInvalidPassword) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("invalid_current_password", "현재 비밀번호가 올바르지 않습니다"))
+		}
+		if errors.Is(err, ErrSamePassword) {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("same_password", "새 비밀번호가 현재 비밀번호와 동일합니다"))
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "비밀번호 변경에 실패했습니다"))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: fiber.Map{
+			"message": "비밀번호가 변경되었습니다",
+		},
+	})
+}
+
+// Logout godoc
+// @Summary      로그아웃
+// @Description  리프레시 토큰을 무효화합니다
+// @Tags         Auth
+// @Produce      json
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /auth/logout [post]
+func (h *Handler) Logout(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	}
+	if err := h.authService.Logout(userID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("logout_failed", "로그아웃에 실패했습니다"))
+	}
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   fiber.Map{"message": "로그아웃 되었습니다"},
+	})
+}
+
+// DeleteMe godoc
+// @Summary      계정 삭제
+// @Description  현재 로그인한 사용자의 계정과 모든 데이터를 삭제합니다
+// @Tags         Users
+// @Produce      json
+// @Success      204  "No Content"
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /users/me [delete]
+func (h *Handler) DeleteMe(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	}
+	if err := h.authService.DeleteUser(userID); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("delete_failed", "계정 삭제에 실패했습니다"))
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }

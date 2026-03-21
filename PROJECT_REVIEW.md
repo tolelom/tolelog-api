@@ -1,6 +1,7 @@
 # Tolelog 블로그 서비스 종합 코드 리뷰
 
-> 리뷰 일자: 2026-03-05
+> 최초 리뷰: 2026-03-05
+> 현행화: 2026-03-21
 > 대상: Backend (`fiber_api_server`) + Frontend (`tolelog`)
 
 ---
@@ -11,16 +12,16 @@
 |-----------|---------|----------|------|------|
 | **아키텍처 & 구조** | 8/10 | 8/10 | **8/10** | 양쪽 모두 깔끔한 레이어 분리 |
 | **코드 품질** | 7/10 | 7/10 | **7/10** | Go 관용구 준수, JSX 일관성 양호 |
-| **보안** | 5/10 | 6/10 | **5.5/10** | JWT 시크릿 문제, 보안 헤더 미적용 |
-| **테스트** | 1/10 | 1/10 | **1/10** | 양쪽 모두 테스트 코드 0개 |
-| **API 설계** | 7/10 | - | **7/10** | RESTful 준수, 응답 포맷 비일관 |
+| **보안** | 6/10 | 6/10 | **6/10** | JWT 시크릿 문제 잔존, 보안 헤더 적용됨 |
+| **테스트** | 4/10 | 1/10 | **2.5/10** | Backend 단위 테스트 추가됨, Frontend 여전히 부재 |
+| **API 설계** | 8/10 | - | **8/10** | RESTful 준수, 응답 포맷 통일됨 |
 | **UI/UX** | - | 8/10 | **8/10** | 다크모드, 반응형, 블록 에디터 |
-| **성능** | 5/10 | 6/10 | **5.5/10** | 캐싱 없음, 인덱스 부족 |
+| **성능** | 7/10 | 6/10 | **6.5/10** | Redis 캐싱 도입, gzip 압축 적용 |
 | **배포 & 운영** | 6/10 | 6/10 | **6/10** | CI/CD 존재, 모니터링 없음 |
-| **문서화** | 5/10 | 5/10 | **5/10** | Swagger 불완전, JSDoc 없음 |
-| **확장성** | 5/10 | 6/10 | **5.5/10** | 태그 설계 한계, TypeScript 미사용 |
+| **문서화** | 7/10 | 5/10 | **6/10** | Swagger 전체 재생성 완료, CLAUDE.md 상세 |
+| **확장성** | 7/10 | 7/10 | **7/10** | 태그 M:N 정규화 완료, TypeScript 전환 완료 |
 | | | | | |
-| **총점** | | | **5.9/10** | |
+| **총점** | | | **6.7/10** | |
 
 ---
 
@@ -54,9 +55,9 @@ Pages → Components → Context/Hooks → API Utils
 - 커스텀 훅 (`useAutoSave`) 활용
 
 **아쉬운 점:**
-- TypeScript 미사용으로 타입 안정성 부족
+- ~~TypeScript 미사용으로 타입 안정성 부족~~ **해결됨** — TypeScript 전환 완료 (`.ts`/`.tsx`)
 - `AuthForm` 컴포넌트가 존재하나 미사용, `LoginBox`/`RegisterBox`가 로직 중복
-- 페이지 레벨 코드 스플리팅 (`React.lazy`) 미적용
+- ~~페이지 레벨 코드 스플리팅 (`React.lazy`) 미적용~~ **해결됨** — `React.lazy` + `Suspense` 적용
 
 ---
 
@@ -73,8 +74,8 @@ Pages → Components → Context/Hooks → API Utils
 
 | 이슈 | 설명 | 위치 |
 |------|------|------|
-| **보안 헤더 미적용** | `X-Content-Type-Options`, `X-Frame-Options`, `CSP` 헤더 없음 | Backend 미들웨어 |
-| **태그 파라미터 미검증** | `tags LIKE "%"+tag+"%"` 쿼리에 길이/문자 검증 없음 | `internal/post/service.go` |
+| ~~**보안 헤더 미적용**~~ | ~~`X-Content-Type-Options`, `X-Frame-Options`, `CSP` 헤더 없음~~ | **해결됨** — `middleware.SecurityHeaders()` 적용 |
+| ~~**태그 파라미터 미검증**~~ | ~~`tags LIKE "%"+tag+"%"` 쿼리에 길이/문자 검증 없음~~ | **해결됨** — 태그 M:N 정규화, 입력 검증 추가 |
 | **localStorage 토큰 저장** | XSS 공격 시 토큰 탈취 가능 → HttpOnly 쿠키 권장 | Frontend `AuthProvider.jsx` |
 | **HTTPS 미강제** | HTTP→HTTPS 리다이렉트 없음, HSTS 헤더 없음 | Backend |
 
@@ -83,7 +84,7 @@ Pages → Components → Context/Hooks → API Utils
 | 이슈 | 설명 |
 |------|------|
 | **비밀번호 정책 미흡** | 최소 6자만 요구, 복잡도 검증 없음 |
-| **토큰 갱신 메커니즘 없음** | Refresh Token 없이 24시간 만료 JWT만 사용 |
+| ~~**토큰 갱신 메커니즘 없음**~~ | **해결됨** — Access Token 15분 + Refresh Token 7일, `/auth/refresh` 엔드포인트 구현 |
 | **CSRF 보호 없음** | SameSite 쿠키나 CSRF 토큰 미적용 |
 | **파일 업로드 보안** | 바이러스 스캔 없음, Content-Disposition 헤더 미설정 |
 
@@ -113,8 +114,8 @@ Pages → Components → Context/Hooks → API Utils
 {"error": "...", "message": "..."}
 ```
 
-- `main.go`의 goroutine 에러가 `log.Fatalf`로 전체 프로세스 종료 가능
-- 구조화된 로깅(structured logging) 없음 → `log.Printf` 사용
+- `main.go`의 goroutine 에러가 `slog.Error` + `os.Exit(1)`로 전체 프로세스 종료 가능
+- ~~구조화된 로깅(structured logging) 없음~~ **해결됨** — `log/slog` 전환 완료
 - PUT과 PATCH가 동일 핸들러 → RESTful 의미론 위반
 
 ### 4.2 Frontend 코드 품질
@@ -136,7 +137,7 @@ Pages → Components → Context/Hooks → API Utils
 
 ## 5. 테스트 평가
 
-### 현재 상태: 0/10 (테스트 코드 없음)
+### 현재 상태: Backend 단위 테스트 추가됨, Frontend 테스트 부재
 
 **Backend - 필요한 테스트:**
 | 우선순위 | 대상 | 테스트 유형 |
@@ -170,11 +171,11 @@ Pages → Components → Context/Hooks → API Utils
 - Optional Auth 미들웨어로 비공개 글 조건부 조회
 
 ### 아쉬운 점:
-- 응답 포맷 비일관 (위 3.1 참조)
-- PUT/PATCH 구분 없음
-- 검색 API 없음 (글 제목/내용 검색)
-- 댓글 기능 없음
-- 사용자 정보 수정 API 없음
+- ~~응답 포맷 비일관~~ **해결됨** — `dto.SuccessResponse`/`dto.ErrorResponse`로 통일
+- PUT/PATCH 구분 없음 (동일 핸들러)
+- ~~검색 API 없음~~ **해결됨** — `GET /posts/search?q=` 구현
+- ~~댓글 기능 없음~~ **해결됨** — 댓글 CRUD + 대댓글 (트리 구조) 구현
+- ~~사용자 정보 수정 API 없음~~ **부분 해결** — 비밀번호 변경, 아바타 업로드 구현
 - Link 헤더 미포함 (HATEOAS)
 - ETag/Last-Modified 캐싱 헤더 없음
 
@@ -186,47 +187,46 @@ Pages → Components → Context/Hooks → API Utils
 
 ```
 User (id, username, password, avatar_url, created_at, updated_at)
-  └── Post (id, user_id FK, title, content, tags, is_public, created_at, updated_at, deleted_at)
+  ├── Post (id, user_id FK, title, content, is_public, view_count, like_count, series_id FK, series_order, created_at, updated_at, deleted_at)
+  │     ├── Tag (id, name) — M:N via post_tags junction table
+  │     ├── Comment (id, post_id FK, user_id FK, content, parent_id FK, created_at, updated_at, deleted_at)
+  │     └── Like (id, post_id FK, user_id FK, created_at)
+  └── Series (id, user_id FK, title, description, created_at, updated_at, deleted_at)
 ```
 
-### 문제점:
+### ~~문제점~~ 진행 상황:
 
-1. **태그가 문자열 필드** (`tags VARCHAR(500)`, 쉼표 구분)
-   - `LIKE "%tag%"` 검색은 인덱스 활용 불가 → 풀 테이블 스캔
-   - "go"를 검색하면 "golang"도 매칭되는 부정확 검색
-   - 권장: `Tag` 테이블 + `PostTag` 다대다 관계 테이블
+1. ~~**태그가 문자열 필드**~~ **해결됨** — `Tag` 테이블 + `post_tags` 다대다 관계 테이블로 정규화 완료
 
-2. **인덱스 부족**
-   - `is_public` 컬럼 인덱스 없음 (공개글 필터링 빈번)
-   - `created_at` 인덱스 없음 (정렬 기준)
-   - `(user_id, is_public)` 복합 인덱스 필요
+2. **인덱스 부족** (일부 잔존)
+   - `(user_id, is_public)` 복합 인덱스 검토 필요
 
-3. **확장성 한계**
-   - 조회수(`view_count`) 없음
-   - 좋아요/댓글 테이블 없음
-   - 카테고리 분류 없음
+3. ~~**확장성 한계**~~ **대부분 해결**
+   - ~~조회수(`view_count`) 없음~~ **해결됨** — Redis 캐싱 기반 조회수 구현
+   - ~~좋아요/댓글 테이블 없음~~ **해결됨** — Like, Comment 테이블 + CRUD 구현
+   - ~~카테고리 분류 없음~~ — 시리즈(Series) 기능으로 글 모음 관리 가능
 
 ---
 
 ## 8. 성능 평가
 
 ### Backend:
-| 항목 | 현재 상태 | 권장 |
+| 항목 | 현재 상태 | 비고 |
 |------|----------|------|
 | DB 커넥션 풀 | 100 max, 10 idle | 적정 |
-| 캐싱 | 없음 | Redis 도입 권장 (인기 글, 사용자 프로필) |
+| 캐싱 | **Redis 도입 완료** | 글 조회 캐싱, TTL, 패턴 삭제 무효화 |
 | N+1 쿼리 | Preload("User") 사용 | 양호 |
-| 태그 검색 | `LIKE` 풀스캔 | 정규화 필요 |
-| 응답 압축 | 없음 | gzip 미들웨어 추가 |
+| 태그 검색 | **M:N 정규화 완료** | JOIN 기반 정확한 검색 |
+| 응답 압축 | **gzip 적용 완료** | `compress.LevelDefault` |
 | 이미지 서빙 | 정적 파일 직접 서빙 | CDN 도입 권장 |
 
 ### Frontend:
-| 항목 | 현재 상태 | 권장 |
+| 항목 | 현재 상태 | 비고 |
 |------|----------|------|
-| 코드 스플리팅 | highlight.js만 분리 | 페이지별 lazy load |
-| 이미지 최적화 | 업로드 시 압축 (1200px, 0.8 quality) | WebP 변환 추가 |
-| 마크다운 파싱 | 매 렌더링마다 재파싱 | useMemo로 캐싱 |
-| 번들 크기 | 분석 없음 | rollup-plugin-visualizer 추가 |
+| 코드 스플리팅 | **React.lazy + Suspense 적용** | 페이지별 lazy load |
+| 이미지 최적화 | 업로드 시 압축 (1200px, 0.8 quality) | WebP 변환 추가 권장 |
+| 마크다운 파싱 | 매 렌더링마다 재파싱 | useMemo로 캐싱 권장 |
+| 번들 크기 | highlight.js 별도 청크 분리 | rollup-plugin-visualizer 추가 권장 |
 
 ---
 
@@ -242,8 +242,8 @@ User (id, username, password, avatar_url, created_at, updated_at)
 - **OG 태그**: 소셜 미디어 공유 시 미리보기 지원
 
 ### 아쉬운 점:
-- 글 검색 기능 없음
-- 댓글/반응 기능 없음
+- ~~글 검색 기능 없음~~ **해결됨** — 키워드 검색 구현
+- ~~댓글/반응 기능 없음~~ **해결됨** — 댓글 (대댓글 포함) + 좋아요 구현
 - 무한 스크롤 대신 페이지네이션만 제공
 - 글 작성 시 미리보기가 별도 모드로만 가능 (분할 뷰 없음)
 - 접근성(a11y) ARIA 속성 일부만 적용
@@ -267,7 +267,7 @@ Frontend: Push → Build(Vite) → Docker Image → GHCR → SSH Deploy
 **아쉬운 점:**
 | 항목 | 상태 |
 |------|------|
-| **CI에서 테스트 실행** | 없음 (빌드만 확인) |
+| **CI에서 테스트 실행** | lint → test → build (추가됨) |
 | **스테이징 환경** | 없음 (프로덕션 직접 배포) |
 | **보안 스캔** | SAST/SCA/컨테이너 스캔 없음 |
 | **모니터링** | Prometheus/Grafana 없음 |
@@ -279,14 +279,18 @@ Frontend: Push → Build(Vite) → Docker Image → GHCR → SSH Deploy
 
 ## 11. 프로젝트 강점 (잘한 점 종합)
 
-1. **아키텍처 설계**: 백엔드 인터페이스 DI, 프론트 Context 패턴 등 교과서적 구조
+1. **아키텍처 설계**: 백엔드 도메인별 레이어드 아키텍처 + 인터페이스 DI, 프론트 Context 패턴
 2. **커스텀 마크다운 엔진**: KaTeX 수식, 코드 하이라이팅, 테이블, 각주까지 직접 구현
 3. **블록 에디터**: Notion/Typora 스타일의 사용자 경험
 4. **테마 시스템**: CSS 변수 기반 다크/라이트 모드
-5. **보안 기본기**: bcrypt, JWT, DOMPurify, Rate Limiting, CORS
+5. **보안**: bcrypt, JWT (Access+Refresh), DOMPurify, Rate Limiting, CORS, 보안 헤더
 6. **임시 저장**: 자동 저장 + 복원 메커니즘
 7. **탭 간 동기화**: storage 이벤트로 크로스탭 로그아웃
 8. **이미지 처리**: 업로드 전 압축, MIME 검증, UUID 파일명
+9. **Redis 캐싱**: 글 조회 캐싱, TTL, 패턴 삭제 기반 무효화
+10. **시리즈 기능**: 글 모음 관리, 순서 변경, 네비게이션
+11. **SEO**: RSS 피드, XML 사이트맵, OG 태그
+12. **Swagger 문서화**: 전체 API 22개 엔드포인트 문서화 완료
 
 ---
 
@@ -294,26 +298,26 @@ Frontend: Push → Build(Vite) → Docker Image → GHCR → SSH Deploy
 
 ### Phase 1: 즉시 (안정성 & 보안)
 - [ ] JWT_SECRET 프로덕션 필수 설정으로 변경
-- [ ] 보안 헤더 미들웨어 추가 (X-Frame-Options, CSP 등)
-- [ ] 태그 파라미터 입력 검증 추가
-- [ ] 핵심 로직 단위 테스트 작성 (JWT, 비밀번호, 인증)
-- [ ] 응답 포맷 통일
+- [x] ~~보안 헤더 미들웨어 추가~~ (2026-03 완료)
+- [x] ~~태그 파라미터 입력 검증 추가~~ (M:N 정규화로 해결)
+- [x] ~~핵심 로직 단위 테스트 작성~~ (Backend 단위 테스트 추가됨)
+- [x] ~~응답 포맷 통일~~ (dto.SuccessResponse/ErrorResponse)
 
 ### Phase 2: 단기 (1~2주)
 - [ ] 테스트 커버리지 60% 이상 달성
-- [ ] CI 파이프라인에 테스트 단계 추가
-- [ ] 구조화된 로깅 도입 (Go: slog)
+- [x] ~~CI 파이프라인에 테스트 단계 추가~~ (lint → test → build)
+- [x] ~~구조화된 로깅 도입~~ (log/slog 전환 완료)
 - [ ] DB 인덱스 추가 (is_public, created_at)
-- [ ] gzip 응답 압축 미들웨어 추가
-- [ ] TypeScript 마이그레이션 시작
+- [x] ~~gzip 응답 압축 미들웨어 추가~~ (compress.LevelDefault)
+- [x] ~~TypeScript 마이그레이션~~ (전환 완료, .ts/.tsx)
 
 ### Phase 3: 중기 (1~2개월)
-- [ ] 태그 테이블 정규화 (다대다 관계)
-- [ ] 검색 기능 구현
-- [ ] 댓글 시스템 추가
-- [ ] Refresh Token 도입
-- [ ] Redis 캐싱 레이어 추가
-- [ ] 페이지별 코드 스플리팅 (React.lazy)
+- [x] ~~태그 테이블 정규화~~ (Tag + post_tags M:N 완료)
+- [x] ~~검색 기능 구현~~ (GET /posts/search?q= 구현)
+- [x] ~~댓글 시스템 추가~~ (CRUD + 대댓글 트리 구조)
+- [x] ~~Refresh Token 도입~~ (15분 access + 7일 refresh)
+- [x] ~~Redis 캐싱 레이어 추가~~ (글 조회 캐싱, 패턴 삭제 무효화)
+- [x] ~~페이지별 코드 스플리팅~~ (React.lazy + Suspense)
 
 ### Phase 4: 장기
 - [ ] 모니터링 시스템 구축 (Prometheus + Grafana)
@@ -326,12 +330,12 @@ Frontend: Push → Build(Vite) → Docker Image → GHCR → SSH Deploy
 
 ## 13. 최종 평가
 
-### 총점: 5.9 / 10
+### 총점: 6.7 / 10 (이전 5.9 → 현재 6.7)
 
-**한 줄 평가:** 아키텍처와 사용자 경험은 우수하나, 테스트 부재와 보안 미비로 프로덕션 안정성에 큰 리스크가 있는 프로젝트.
+**한 줄 평가:** Phase 1~3의 주요 항목이 대부분 해결되어 기능적으로 완성도가 높아졌으나, 테스트 커버리지 확대와 JWT 시크릿 프로덕션 필수화가 남은 과제.
 
-**포지티브 관점:** 개인 프로젝트/학습 목적으로 보면 Go + React 풀스택을 깔끔한 아키텍처로 구현했고, 커스텀 마크다운 에디터와 테마 시스템은 상당한 수준. 실서비스 운영 경험도 있어 배포 파이프라인까지 갖춰진 점이 인상적.
+**포지티브 관점:** 초기 리뷰 대비 보안 헤더 적용, 응답 포맷 통일, 태그 정규화, 검색/댓글/좋아요/시리즈 기능 구현, Redis 캐싱, Refresh Token, TypeScript 전환, React.lazy 적용, Swagger 전체 문서화 등 대대적 개선이 이뤄짐.
 
-**크리티컬 관점:** 테스트 코드 0개는 어떤 프로덕션 서비스에서든 가장 큰 리스크. JWT 시크릿 자동 생성, 보안 헤더 미적용, 태그 검색 성능 이슈는 서비스 규모가 커지면 즉시 문제가 됨.
+**크리티컬 관점:** JWT 시크릿 자동 생성 문제 잔존, Frontend 테스트 여전히 부재, Backend 테스트 커버리지 확대 필요.
 
-**프로덕션 배포 판단:** 현재 상태로는 소규모 개인 블로그로 운영 가능하나, Phase 1의 보안 이슈 해결과 최소한의 테스트 작성이 선행되어야 안정적인 서비스 운영이 가능.
+**프로덕션 배포 판단:** 소규모~중규모 블로그 서비스로 운영 가능. JWT_SECRET 프로덕션 필수 설정과 테스트 커버리지 60% 이상 달성 시 안정적 서비스 운영 가능.

@@ -50,6 +50,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
+		Status:   req.Status,
 		TagsRaw:  req.Tags,
 	}
 
@@ -364,7 +365,19 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 	})
 }
 
-// ToggleLike toggles a like on a post
+// ToggleLike godoc
+// @Summary      좋아요 토글
+// @Description  게시글의 좋아요를 토글합니다. 이미 좋아요한 경우 취소, 아닌 경우 추가됩니다.
+// @Tags         Posts
+// @Produce      json
+// @Param        Authorization  header  string  true  "Bearer token"
+// @Param        id             path    int     true  "글 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /posts/{id}/like [post]
 func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -390,7 +403,17 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 	})
 }
 
-// GetLikeStatus checks if the current user liked a post
+// GetLikeStatus godoc
+// @Summary      좋아요 상태 조회
+// @Description  현재 사용자가 해당 게시글을 좋아요했는지 확인합니다
+// @Tags         Posts
+// @Produce      json
+// @Param        id             path    int     true   "글 ID"
+// @Param        Authorization  header  string  false  "Bearer token (로그인 시)"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /posts/{id}/like [get]
 func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -407,5 +430,34 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 		Data: fiber.Map{
 			"liked": liked,
 		},
+	})
+}
+
+// GetDrafts godoc
+// @Summary      내 초안 목록 조회
+// @Description  현재 로그인한 사용자의 초안 글 목록을 조회합니다
+// @Tags         Posts
+// @Produce      json
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /drafts [get]
+func (h *Handler) GetDrafts(c *fiber.Ctx) error {
+	userID, ok := c.Locals("userID").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	}
+	posts, err := h.service.GetDrafts(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("internal_error", "초안 목록 조회에 실패했습니다"))
+	}
+	responses := make([]dto.PostListResponse, len(posts))
+	for i := range posts {
+		responses[i] = dto.PostToListResponse(&posts[i])
+	}
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Status: "success",
+		Data:   responses,
 	})
 }

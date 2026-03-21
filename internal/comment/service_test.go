@@ -12,6 +12,7 @@ import (
 type mockService struct {
 	createCommentFn     func(comment *model.Comment) error
 	getCommentsByPostFn func(postID uint) ([]model.Comment, int64, error)
+	updateCommentFn     func(commentID uint, userID uint, content string) (*model.Comment, error)
 	deleteCommentFn     func(commentID uint, userID uint) error
 }
 
@@ -27,6 +28,13 @@ func (m *mockService) GetCommentsByPostID(postID uint) ([]model.Comment, int64, 
 		return m.getCommentsByPostFn(postID)
 	}
 	return nil, 0, nil
+}
+
+func (m *mockService) UpdateComment(commentID uint, userID uint, content string) (*model.Comment, error) {
+	if m.updateCommentFn != nil {
+		return m.updateCommentFn(commentID, userID, content)
+	}
+	return nil, nil
 }
 
 func (m *mockService) DeleteComment(commentID uint, userID uint) error {

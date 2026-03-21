@@ -18,6 +18,20 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
+// CreateSeries godoc
+// @Summary      시리즈 생성
+// @Description  새로운 시리즈를 생성합니다
+// @Tags         Series
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                    true  "Bearer token"
+// @Param        body           body    dto.CreateSeriesRequest   true  "시리즈 정보"
+// @Success      201  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series [post]
 func (h *Handler) CreateSeries(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -48,6 +62,17 @@ func (h *Handler) CreateSeries(c *fiber.Ctx) error {
 	})
 }
 
+// GetSeries godoc
+// @Summary      시리즈 상세 조회
+// @Description  시리즈 ID로 시리즈 상세 정보와 포함된 글 목록을 조회합니다
+// @Tags         Series
+// @Produce      json
+// @Param        id  path  int  true  "시리즈 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /series/{id} [get]
 func (h *Handler) GetSeries(c *fiber.Ctx) error {
 	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -68,6 +93,16 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 	})
 }
 
+// GetUserSeries godoc
+// @Summary      사용자 시리즈 목록 조회
+// @Description  특정 사용자의 시리즈 목록을 조회합니다
+// @Tags         Series
+// @Produce      json
+// @Param        user_id  path  int  true  "사용자 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /users/{user_id}/series [get]
 func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
 	if err != nil {
@@ -90,6 +125,23 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 	})
 }
 
+// UpdateSeries godoc
+// @Summary      시리즈 수정
+// @Description  작성자가 시리즈 정보를 수정합니다
+// @Tags         Series
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                    true  "Bearer token"
+// @Param        id             path    int                       true  "시리즈 ID"
+// @Param        body           body    dto.UpdateSeriesRequest   true  "수정할 시리즈 정보"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series/{id} [put]
 func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -126,6 +178,21 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 	})
 }
 
+// DeleteSeries godoc
+// @Summary      시리즈 삭제
+// @Description  작성자가 시리즈를 삭제합니다. 포함된 글은 삭제되지 않습니다.
+// @Tags         Series
+// @Produce      json
+// @Param        Authorization  header  string  true  "Bearer token"
+// @Param        id             path    int     true  "시리즈 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series/{id} [delete]
 func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -153,6 +220,23 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 	})
 }
 
+// AddPostToSeries godoc
+// @Summary      시리즈에 글 추가
+// @Description  시리즈에 글을 추가합니다. 시리즈와 글 모두 본인 소유여야 합니다.
+// @Tags         Series
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                       true  "Bearer token"
+// @Param        id             path    int                          true  "시리즈 ID"
+// @Param        body           body    dto.AddPostToSeriesRequest   true  "추가할 글 정보"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series/{id}/posts [post]
 func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -191,6 +275,22 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 	})
 }
 
+// RemovePostFromSeries godoc
+// @Summary      시리즈에서 글 제거
+// @Description  시리즈에서 글을 제거합니다. 글 자체는 삭제되지 않습니다.
+// @Tags         Series
+// @Produce      json
+// @Param        Authorization  header  string  true  "Bearer token"
+// @Param        id             path    int     true  "시리즈 ID"
+// @Param        post_id        path    int     true  "게시글 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series/{id}/posts/{post_id} [delete]
 func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -223,6 +323,23 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 	})
 }
 
+// ReorderPosts godoc
+// @Summary      시리즈 글 순서 변경
+// @Description  시리즈에 포함된 글의 순서를 변경합니다
+// @Tags         Series
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header  string                     true  "Bearer token"
+// @Param        id             path    int                        true  "시리즈 ID"
+// @Param        body           body    dto.ReorderPostsRequest    true  "새로운 글 순서"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Security     BearerAuth
+// @Router       /series/{id}/reorder [put]
 func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 	userID, ok := c.Locals("userID").(uint)
 	if !ok {
@@ -258,6 +375,16 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 	})
 }
 
+// GetSeriesNavigation godoc
+// @Summary      시리즈 네비게이션 조회
+// @Description  게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다
+// @Tags         Series
+// @Produce      json
+// @Param        id  path  int  true  "게시글 ID"
+// @Success      200  {object}  dto.SuccessResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      500  {object}  dto.ErrorResponse
+// @Router       /posts/{id}/series-nav [get]
 func (h *Handler) GetSeriesNavigation(c *fiber.Ctx) error {
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {

@@ -1,3 +1,12 @@
+// @title           Tolelog API
+// @version         1.0
+// @description     Tolelog 블로그 플랫폼의 REST API 서버
+// @host            tolelom.xyz
+// @BasePath        /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer 토큰을 입력하세요 (예: Bearer eyJhbGciOi...)
 package main
 
 import (

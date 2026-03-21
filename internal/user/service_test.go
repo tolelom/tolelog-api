@@ -16,6 +16,9 @@ type mockAuthService struct {
 	getUserByIDFn      func(userID uint) (*model.User, error)
 	updateAvatarFn     func(userID uint, avatarURL string) error
 	refreshTokensFn    func(refreshToken string) (*dto.AuthResponse, error)
+	changePasswordFn   func(userID uint, req *dto.ChangePasswordRequest) error
+	logoutFn           func(userID uint) error
+	deleteUserFn       func(userID uint) error
 }
 
 func (m *mockAuthService) RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse, error) {
@@ -51,6 +54,27 @@ func (m *mockAuthService) RefreshTokens(refreshToken string) (*dto.AuthResponse,
 		return m.refreshTokensFn(refreshToken)
 	}
 	return nil, nil
+}
+
+func (m *mockAuthService) ChangePassword(userID uint, req *dto.ChangePasswordRequest) error {
+	if m.changePasswordFn != nil {
+		return m.changePasswordFn(userID, req)
+	}
+	return nil
+}
+
+func (m *mockAuthService) Logout(userID uint) error {
+	if m.logoutFn != nil {
+		return m.logoutFn(userID)
+	}
+	return nil
+}
+
+func (m *mockAuthService) DeleteUser(userID uint) error {
+	if m.deleteUserFn != nil {
+		return m.deleteUserFn(userID)
+	}
+	return nil
 }
 
 func TestNewAuthService(t *testing.T) {

@@ -2,10 +2,9 @@ package feed
 
 import (
 	"encoding/xml"
-	"regexp"
-	"strings"
 	"time"
 	"tolelom_api/internal/post"
+	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -52,17 +51,8 @@ func NewHandler(postService post.Service) *Handler {
 	return &Handler{postService: postService}
 }
 
-var markdownRe = regexp.MustCompile(`(?m)^#{1,6}\s+|[*_~` + "`" + `\[\]()!>|]|\{[^}]*\}`)
-
-func stripMarkdown(text string) string {
-	result := markdownRe.ReplaceAllString(text, "")
-	result = strings.ReplaceAll(result, "\n", " ")
-	result = strings.Join(strings.Fields(result), " ")
-	return result
-}
-
 func excerpt(content string, maxLen int) string {
-	plain := stripMarkdown(content)
+	plain := utils.StripMarkdown(content)
 	if len([]rune(plain)) <= maxLen {
 		return plain
 	}

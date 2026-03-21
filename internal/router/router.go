@@ -13,6 +13,7 @@ import (
 	"tolelom_api/internal/sitemap"
 	"tolelom_api/internal/post"
 	"tolelom_api/internal/series"
+	"tolelom_api/internal/tag"
 	"tolelom_api/internal/user"
 
 	"github.com/gofiber/fiber/v2"
@@ -83,8 +84,11 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	seriesService := series.NewService(cfg.DB)
 	seriesHandler := series.NewHandler(seriesService)
 
+	tagService := tag.NewService(cfg.DB)
+	tagHandler := tag.NewHandler(tagService)
+
 	feedHandler := feed.NewHandler(postService)
-	sitemapHandler := sitemap.NewHandler(cfg.DB)
+	sitemapHandler := sitemap.NewHandler(sitemap.NewRepository(cfg.DB))
 
 	// Health check
 	// @Summary		Health Check
@@ -127,14 +131,39 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	auth.Post("/login", authLimiter, userHandler.Login)
 	auth.Post("/register", authLimiter, userHandler.Register)
 	auth.Post("/refresh", authLimiter, userHandler.RefreshToken)
+	auth.Post("/logout", middleware.AuthMiddleware(cfg), userHandler.Logout)
 
-	// Upload route (인증 필요)
-	api.Post("/upload", middleware.AuthMiddleware(cfg), imageHandler.Upload)
+	// Search rate limiting (분당 30회)
+	searchLimiter := limiter.New(limiter.Config{
+		Max:        30,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "검색 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
+		},
+	})
+
+	// Upload rate limiting (분당 20회)
+	uploadLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "업로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
+		},
+	})
+
+	// Upload route (인증 필요 + rate limiting)
+	api.Post("/upload", uploadLimiter, middleware.AuthMiddleware(cfg), imageHandler.Upload)
+
+	// Drafts route (인증 필요)
+	api.Get("/drafts", middleware.AuthMiddleware(cfg), postHandler.GetDrafts)
+
+	// Tag routes
+	api.Get("/tags", tagHandler.GetTags)
 
 	// Post routes
 	posts := api.Group("/posts")
 	posts.Get("", postHandler.GetPublicPosts)                                    // 공개 글 목록
-	posts.Get("/search", postHandler.SearchPosts)                                // 글 검색
+	posts.Get("/search", searchLimiter, postHandler.SearchPosts)                  // 글 검색 (rate limiting)
 	posts.Get("/:id", middleware.OptionalAuthMiddleware(cfg), postHandler.GetPost) // 글 상세 조회 (선택적 인증)
 	posts.Post("", middleware.AuthMiddleware(cfg), postHandler.CreatePost)        // 글 생성 (인증 필요)
 	posts.Put("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)     // 글 수정 PUT (인증 필요)
@@ -164,7 +193,9 @@ func Setup(app *fiber.App, cfg *config.Config) {
 
 	// User routes
 	users := api.Group("/users")
-	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar) // 프로필 이미지 업로드 (인증 필요)
+	users.Delete("/me", middleware.AuthMiddleware(cfg), userHandler.DeleteMe)          // 계정 삭제 (인증 필요)
+	users.Put("/password", middleware.AuthMiddleware(cfg), userHandler.ChangePassword) // 비밀번호 변경 (인증 필요)
+	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar)     // 프로필 이미지 업로드 (인증 필요)
 	users.Get("/:user_id", userHandler.GetProfile)                                // 사용자 프로필
 	users.Get("/:user_id/series", seriesHandler.GetUserSeries)                    // 사용자 시리즈 목록
 	users.Get("/:user_id/posts", middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)

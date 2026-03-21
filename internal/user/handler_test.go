@@ -553,3 +553,143 @@ func TestRegister_Handler_InvalidUsername(t *testing.T) {
 		t.Errorf("expected 400 for invalid username, got %d", resp.StatusCode)
 	}
 }
+
+// setupLogoutApp creates a fiber.App with Logout and DeleteMe routes.
+func setupLogoutApp(svc AuthService) *fiber.App {
+	app := fiber.New()
+	h := NewHandler(svc, "/tmp/uploads")
+
+	app.Post("/auth/logout", h.Logout)
+	app.Delete("/users/me", h.DeleteMe)
+
+	return app
+}
+
+// setupAuthLogoutApp creates a fiber.App with auth middleware plus Logout and DeleteMe routes.
+func setupAuthLogoutApp(svc AuthService, userID uint) *fiber.App {
+	app := fiber.New()
+	h := NewHandler(svc, "/tmp/uploads")
+
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("userID", userID)
+		return c.Next()
+	})
+
+	app.Post("/auth/logout", h.Logout)
+	app.Delete("/users/me", h.DeleteMe)
+
+	return app
+}
+
+// --- Logout ---
+
+func TestLogout_Success(t *testing.T) {
+	ms := &mockAuthService{
+		logoutFn: func(userID uint) error {
+			return nil
+		},
+	}
+	app := setupAuthLogoutApp(ms, 1)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result dto.SuccessResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected 'success', got %q", result.Status)
+	}
+}
+
+func TestLogout_Unauthorized(t *testing.T) {
+	ms := &mockAuthService{}
+	app := setupLogoutApp(ms)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestLogout_ServiceError(t *testing.T) {
+	ms := &mockAuthService{
+		logoutFn: func(userID uint) error {
+			return errors.New("logout db error")
+		},
+	}
+	app := setupAuthLogoutApp(ms, 1)
+
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
+	}
+}
+
+// --- DeleteMe ---
+
+func TestDeleteMe_Success(t *testing.T) {
+	ms := &mockAuthService{
+		deleteUserFn: func(userID uint) error {
+			return nil
+		},
+	}
+	app := setupAuthLogoutApp(ms, 1)
+
+	req := httptest.NewRequest(http.MethodDelete, "/users/me", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", resp.StatusCode)
+	}
+}
+
+func TestDeleteMe_Unauthorized(t *testing.T) {
+	ms := &mockAuthService{}
+	app := setupLogoutApp(ms)
+
+	req := httptest.NewRequest(http.MethodDelete, "/users/me", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestDeleteMe_ServiceError(t *testing.T) {
+	ms := &mockAuthService{
+		deleteUserFn: func(userID uint) error {
+			return errors.New("delete db error")
+		},
+	}
+	app := setupAuthLogoutApp(ms, 1)
+
+	req := httptest.NewRequest(http.MethodDelete, "/users/me", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
+	}
+}

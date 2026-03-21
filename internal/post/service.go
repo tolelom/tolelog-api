@@ -73,6 +73,7 @@ type Service interface {
 	SearchPosts(query string, page, pageSize int) ([]model.Post, int64, error)
 	ToggleLike(postID uint, userID uint) (liked bool, likeCount uint, err error)
 	IsLiked(postID uint, userID uint) bool
+	GetDrafts(userID uint) ([]model.Post, error)
 }
 
 type service struct {
@@ -135,6 +136,10 @@ type cachedPublicPostList struct {
 
 // CreatePost - 새 글 생성
 func (s *service) CreatePost(post *model.Post) error {
+	if post.Status == "" {
+		post.Status = "published"
+	}
+
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(post).Error; err != nil {
 			return err
@@ -174,6 +179,10 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 				_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 			}()
 			post.ViewCount++
+			// Update cache with incremented view count
+			if err := s.cache.Set(cacheKey, &post, cacheTTLPost); err != nil {
+				slog.Warn("캐시 갱신 실패 (조회수)", "postID", postID, "error", err)
+			}
 			return &post, nil
 		}
 	}
@@ -219,7 +228,7 @@ func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, 
 	var posts []model.Post
 	var total int64
 
-	query := s.db.Where("is_public = ?", true)
+	query := s.db.Where("is_public = ? AND status = ?", true, "published")
 	if tag != "" {
 		sanitized, err := SanitizeTag(tag)
 		if err != nil {
@@ -266,7 +275,7 @@ func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize 
 	query := s.db.Model(&model.Post{}).Where("user_id = ?", userID)
 
 	if currentUserID == nil || *currentUserID != userID {
-		query = query.Where("is_public = ?", true)
+		query = query.Where("is_public = ? AND status = ?", true, "published")
 	}
 	if tag != "" {
 		sanitized, err := SanitizeTag(tag)
@@ -326,6 +335,9 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 	if req.Tags != nil {
 		updates["tags"] = *req.Tags
 	}
+	if req.Status != nil {
+		updates["status"] = *req.Status
+	}
 
 	if len(updates) == 0 {
 		return nil, ErrNoFieldsToUpdate
@@ -365,7 +377,7 @@ func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, i
 	var total int64
 
 	likeQuery := "%" + query + "%"
-	q := s.db.Where("is_public = ? AND (title LIKE ? OR content LIKE ?)", true, likeQuery, likeQuery)
+	q := s.db.Where("is_public = ? AND status = ? AND (title LIKE ? OR content LIKE ?)", true, "published", likeQuery, likeQuery)
 
 	if err := q.Model(&model.Post{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -455,6 +467,18 @@ func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
 	s.invalidatePostCaches(postID)
 
 	return liked, likeCount, nil
+}
+
+// GetDrafts returns all draft posts for a user.
+func (s *service) GetDrafts(userID uint) ([]model.Post, error) {
+	var posts []model.Post
+	if err := s.db.Where("user_id = ? AND status = ?", userID, "draft").
+		Preload("User").Preload("Tags").
+		Order("updated_at DESC").
+		Find(&posts).Error; err != nil {
+		return nil, err
+	}
+	return posts, nil
 }
 
 // IsLiked checks if a user has liked a post.

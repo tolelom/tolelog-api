@@ -21,9 +21,10 @@ var (
 
 // Claims represents JWT custom claims
 type Claims struct {
-	UserID    uint   `json:"user_id"`
-	Username  string `json:"username"`
-	TokenType string `json:"token_type"` // "access" or "refresh"
+	UserID       uint   `json:"user_id"`
+	Username     string `json:"username"`
+	TokenType    string `json:"token_type"`                   // "access" or "refresh"
+	TokenVersion int    `json:"token_version,omitempty"` // refresh token에만 사용
 	jwt.RegisteredClaims
 }
 
@@ -50,9 +51,10 @@ func GenerateTokenPair(user *model.User, secretKey string) (accessToken string, 
 
 	// Refresh token: 7 days
 	refreshClaims := Claims{
-		UserID:    user.ID,
-		Username:  user.Username,
-		TokenType: "refresh",
+		UserID:       user.ID,
+		Username:     user.Username,
+		TokenType:    "refresh",
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(now),
