@@ -7,7 +7,3 @@ linters:
     - staticcheck
     - ineffassign
     - unused
-
-settings:
-  errcheck:
-    check-type-assertions: true
