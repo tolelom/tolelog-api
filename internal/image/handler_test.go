@@ -67,7 +67,7 @@ func TestUpload_Handler_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	app := setupTestApp(tmpDir)
 
@@ -237,7 +237,7 @@ func TestUpload_Handler_JPEGFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	app := setupTestApp(tmpDir)
 
@@ -262,7 +262,7 @@ func TestUpload_Handler_ResponseURLFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	app := setupTestApp(tmpDir)
 

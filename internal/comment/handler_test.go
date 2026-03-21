@@ -27,13 +27,6 @@ func setupTestApp(svc Service) *fiber.App {
 	return app
 }
 
-// setUserID is a middleware helper that sets userID in Locals for auth-required routes.
-func setUserID(app *fiber.App, userID uint) {
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("userID", userID)
-		return c.Next()
-	})
-}
 
 func setupAuthApp(svc Service, userID uint) *fiber.App {
 	app := fiber.New()
