@@ -151,6 +151,15 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		},
 	})
 
+	// Public read rate limiting (분당 60회)
+	readLimiter := limiter.New(limiter.Config{
+		Max:        60,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
+		},
+	})
+
 	// Upload route (인증 필요 + rate limiting)
 	api.Post("/upload", uploadLimiter, middleware.AuthMiddleware(cfg), imageHandler.Upload)
 
@@ -158,32 +167,32 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	api.Get("/drafts", middleware.AuthMiddleware(cfg), postHandler.GetDrafts)
 
 	// Tag routes
-	api.Get("/tags", tagHandler.GetTags)
+	api.Get("/tags", readLimiter, tagHandler.GetTags)
 
 	// Post routes
 	posts := api.Group("/posts")
-	posts.Get("", postHandler.GetPublicPosts)                                    // 공개 글 목록
+	posts.Get("", readLimiter, postHandler.GetPublicPosts)                       // 공개 글 목록
 	posts.Get("/search", searchLimiter, postHandler.SearchPosts)                  // 글 검색 (rate limiting)
-	posts.Get("/:id", middleware.OptionalAuthMiddleware(cfg), postHandler.GetPost) // 글 상세 조회 (선택적 인증)
+	posts.Get("/:id", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetPost) // 글 상세 조회 (선택적 인증)
 	posts.Post("", middleware.AuthMiddleware(cfg), postHandler.CreatePost)        // 글 생성 (인증 필요)
 	posts.Put("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)     // 글 수정 PUT (인증 필요)
 	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)   // 글 수정 PATCH (인증 필요)
 	posts.Delete("/:id", middleware.AuthMiddleware(cfg), postHandler.DeletePost)  // 글 삭제 (인증 필요)
 	posts.Post("/:id/like", middleware.AuthMiddleware(cfg), postHandler.ToggleLike) // 좋아요 토글 (인증 필요)
-	posts.Get("/:id/like", middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
+	posts.Get("/:id/like", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
 
 	// Comment routes
-	posts.Get("/:id/comments", commentHandler.GetComments)                                          // 댓글 목록 조회
+	posts.Get("/:id/comments", readLimiter, commentHandler.GetComments)                              // 댓글 목록 조회
 	posts.Post("/:id/comments", middleware.AuthMiddleware(cfg), commentHandler.CreateComment)        // 댓글 작성 (인증 필요)
 	posts.Put("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)    // 댓글 수정 (인증 필요)
 	posts.Delete("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요)
 
 	// Series navigation (under posts)
-	posts.Get("/:id/series-nav", seriesHandler.GetSeriesNavigation)
+	posts.Get("/:id/series-nav", readLimiter, seriesHandler.GetSeriesNavigation)
 
 	// Series routes
 	seriesGroup := api.Group("/series")
-	seriesGroup.Get("/:id", seriesHandler.GetSeries)
+	seriesGroup.Get("/:id", readLimiter, seriesHandler.GetSeries)
 	seriesGroup.Post("", middleware.AuthMiddleware(cfg), seriesHandler.CreateSeries)
 	seriesGroup.Put("/:id", middleware.AuthMiddleware(cfg), seriesHandler.UpdateSeries)
 	seriesGroup.Delete("/:id", middleware.AuthMiddleware(cfg), seriesHandler.DeleteSeries)
@@ -196,7 +205,7 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	users.Delete("/me", middleware.AuthMiddleware(cfg), userHandler.DeleteMe)          // 계정 삭제 (인증 필요)
 	users.Put("/password", middleware.AuthMiddleware(cfg), userHandler.ChangePassword) // 비밀번호 변경 (인증 필요)
 	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar)     // 프로필 이미지 업로드 (인증 필요)
-	users.Get("/:user_id", userHandler.GetProfile)                                // 사용자 프로필
-	users.Get("/:user_id/series", seriesHandler.GetUserSeries)                    // 사용자 시리즈 목록
-	users.Get("/:user_id/posts", middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
+	users.Get("/:user_id", readLimiter, userHandler.GetProfile)                    // 사용자 프로필
+	users.Get("/:user_id/series", readLimiter, seriesHandler.GetUserSeries)       // 사용자 시리즈 목록
+	users.Get("/:user_id/posts", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
 }

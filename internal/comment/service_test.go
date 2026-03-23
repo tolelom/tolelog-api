@@ -11,7 +11,7 @@ import (
 // mockService implements Service for testing.
 type mockService struct {
 	createCommentFn     func(comment *model.Comment) error
-	getCommentsByPostFn func(postID uint) ([]model.Comment, int64, error)
+	getCommentsByPostFn func(postID uint) ([]model.Comment, int64, error) // limit is ignored in mock
 	updateCommentFn     func(commentID uint, userID uint, content string) (*model.Comment, error)
 	deleteCommentFn     func(commentID uint, userID uint) error
 }
@@ -23,7 +23,7 @@ func (m *mockService) CreateComment(comment *model.Comment) error {
 	return nil
 }
 
-func (m *mockService) GetCommentsByPostID(postID uint) ([]model.Comment, int64, error) {
+func (m *mockService) GetCommentsByPostID(postID uint, _ int) ([]model.Comment, int64, error) {
 	if m.getCommentsByPostFn != nil {
 		return m.getCommentsByPostFn(postID)
 	}
@@ -174,7 +174,7 @@ func TestGetCommentsByPostID_Success(t *testing.T) {
 		},
 	}
 
-	comments, total, err := ms.GetCommentsByPostID(1)
+	comments, total, err := ms.GetCommentsByPostID(1, 200)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestGetCommentsByPostID_Empty(t *testing.T) {
 		},
 	}
 
-	comments, total, err := ms.GetCommentsByPostID(999)
+	comments, total, err := ms.GetCommentsByPostID(999, 200)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestGetCommentsByPostID_DBError(t *testing.T) {
 		},
 	}
 
-	_, _, err := ms.GetCommentsByPostID(1)
+	_, _, err := ms.GetCommentsByPostID(1, 200)
 	if !errors.Is(err, dbErr) {
 		t.Errorf("expected db error, got %v", err)
 	}
@@ -231,7 +231,7 @@ func TestGetCommentsByPostID_WithReplies(t *testing.T) {
 		},
 	}
 
-	comments, total, err := ms.GetCommentsByPostID(1)
+	comments, total, err := ms.GetCommentsByPostID(1, 200)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

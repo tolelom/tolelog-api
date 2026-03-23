@@ -16,7 +16,7 @@ var (
 
 type Service interface {
 	CreateComment(comment *model.Comment) error
-	GetCommentsByPostID(postID uint) ([]model.Comment, int64, error)
+	GetCommentsByPostID(postID uint, limit int) ([]model.Comment, int64, error)
 	UpdateComment(commentID uint, userID uint, content string) (*model.Comment, error)
 	DeleteComment(commentID uint, userID uint) error
 }
@@ -69,8 +69,8 @@ func (s *service) CreateComment(comment *model.Comment) error {
 	return nil
 }
 
-// GetCommentsByPostID returns all comments for a post ordered by creation time.
-func (s *service) GetCommentsByPostID(postID uint) ([]model.Comment, int64, error) {
+// GetCommentsByPostID returns comments for a post ordered by creation time, up to the given limit.
+func (s *service) GetCommentsByPostID(postID uint, limit int) ([]model.Comment, int64, error) {
 	var comments []model.Comment
 	var total int64
 
@@ -80,7 +80,7 @@ func (s *service) GetCommentsByPostID(postID uint) ([]model.Comment, int64, erro
 		return nil, 0, err
 	}
 
-	if err := query.Preload("User").Order("created_at ASC").Find(&comments).Error; err != nil {
+	if err := query.Preload("User").Order("created_at ASC").Limit(limit).Find(&comments).Error; err != nil {
 		return nil, 0, err
 	}
 

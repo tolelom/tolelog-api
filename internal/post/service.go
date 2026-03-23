@@ -371,12 +371,20 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 	return &post, nil
 }
 
+// escapeLike escapes SQL LIKE metacharacters (%, _) in a string.
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
+}
+
 // SearchPosts - 공개 글 검색 (제목/본문 LIKE, 페이지네이션)
 func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, int64, error) {
 	var posts []model.Post
 	var total int64
 
-	likeQuery := "%" + query + "%"
+	likeQuery := "%" + escapeLike(query) + "%"
 	q := s.db.Where("is_public = ? AND status = ? AND (title LIKE ? OR content LIKE ?)", true, "published", likeQuery, likeQuery)
 
 	if err := q.Model(&model.Post{}).Count(&total).Error; err != nil {

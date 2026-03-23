@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -34,9 +34,9 @@ func NewHandler(service Service) *Handler {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/comments [post]
 func (h *Handler) CreateComment(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -44,12 +44,9 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
 	}
 
-	var req dto.CreateCommentRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidate[dto.CreateCommentRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	comment := &model.Comment{
@@ -80,7 +77,8 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 // @Description  게시글의 댓글 목록을 트리 구조로 조회합니다
 // @Tags         Comments
 // @Produce      json
-// @Param        id  path  int  true  "게시글 ID"
+// @Param        id     path   int  true   "게시글 ID"
+// @Param        limit  query  int  false  "최대 댓글 수 (기본값: 200, 최대: 500)"
 // @Success      200  {object}  dto.SuccessResponse
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
@@ -91,7 +89,12 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
 	}
 
-	comments, total, err := h.service.GetCommentsByPostID(uint(postID))
+	limit := c.QueryInt("limit", 200)
+	if limit < 1 || limit > 500 {
+		limit = 200
+	}
+
+	comments, total, err := h.service.GetCommentsByPostID(uint(postID), limit)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "댓글 조회에 실패했습니다"))
 	}
@@ -125,12 +128,12 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/comments/{comment_id} [put]
 func (h *Handler) UpdateComment(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
-	_, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	_, err = strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
 	}
@@ -140,12 +143,9 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_comment_id", "잘못된 댓글 ID입니다"))
 	}
 
-	var req dto.UpdateCommentRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidate[dto.UpdateCommentRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	comment, err := h.service.UpdateComment(uint(commentID), userID, req.Content)
@@ -181,12 +181,12 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/comments/{comment_id} [delete]
 func (h *Handler) DeleteComment(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
-	_, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	_, err = strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
 	}
@@ -206,10 +206,5 @@ func (h *Handler) DeleteComment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("deletion_failed", "댓글 삭제에 실패했습니다"))
 	}
 
-	return c.JSON(dto.SuccessResponse{
-		Status: "success",
-		Data: fiber.Map{
-			"message": "삭제되었습니다",
-		},
-	})
+	return c.SendStatus(fiber.StatusNoContent)
 }

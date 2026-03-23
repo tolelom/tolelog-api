@@ -409,17 +409,8 @@ func TestDeletePost_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected status 200, got %d", resp.StatusCode)
-	}
-
-	var result dto.SuccessResponse
-	respBody, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
-	}
-	if result.Status != "success" {
-		t.Errorf("expected status 'success', got %q", result.Status)
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("expected status 204, got %d", resp.StatusCode)
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -32,17 +32,14 @@ func NewHandler(service Service) *Handler {
 // @Failure      500            {object}  dto.ErrorResponse
 // @Router       /posts [post]
 func (h *Handler) CreatePost(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
-	var req dto.CreatePostRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidate[dto.CreatePostRequest](c)
+	if err != nil {
+		return nil
 	}
 
 	p := &model.Post{
@@ -116,16 +113,8 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts [get]
 func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
-	page := c.QueryInt("page", 1)
-	pageSize := c.QueryInt("page_size", 10)
+	page, pageSize := httputil.ParsePagination(c)
 	tag := c.Query("tag")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
 
 	posts, total, err := h.service.GetPublicPosts(page, pageSize, tag)
 	if err != nil {
@@ -143,13 +132,8 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
 		Data: dto.PostListWithPagination{
-			Posts: postResponses,
-			Pagination: dto.Pagination{
-				Page:       page,
-				PageSize:   pageSize,
-				Total:      total,
-				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
-			},
+			Posts:      postResponses,
+			Pagination: httputil.NewPagination(page, pageSize, total),
 		},
 	})
 }
@@ -172,16 +156,8 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_user_id", "잘못된 사용자 ID입니다"))
 	}
 
-	page := c.QueryInt("page", 1)
-	pageSize := c.QueryInt("page_size", 10)
+	page, pageSize := httputil.ParsePagination(c)
 	tag := c.Query("tag")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
 
 	var currentUserID *uint
 	if uid, ok := c.Locals("userID").(uint); ok {
@@ -204,13 +180,8 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
 		Data: dto.PostListWithPagination{
-			Posts: postResponses,
-			Pagination: dto.Pagination{
-				Page:       page,
-				PageSize:   pageSize,
-				Total:      total,
-				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
-			},
+			Posts:      postResponses,
+			Pagination: httputil.NewPagination(page, pageSize, total),
 		},
 	})
 }
@@ -234,14 +205,7 @@ func (h *Handler) SearchPosts(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_query", "검색어는 2자 이상 100자 이하여야 합니다"))
 	}
 
-	page := c.QueryInt("page", 1)
-	pageSize := c.QueryInt("page_size", 10)
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
-	}
+	page, pageSize := httputil.ParsePagination(c)
 
 	posts, total, err := h.service.SearchPosts(sanitized, page, pageSize)
 	if err != nil {
@@ -256,13 +220,8 @@ func (h *Handler) SearchPosts(c *fiber.Ctx) error {
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
 		Data: dto.PostListWithPagination{
-			Posts: postResponses,
-			Pagination: dto.Pagination{
-				Page:       page,
-				PageSize:   pageSize,
-				Total:      total,
-				TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
-			},
+			Posts:      postResponses,
+			Pagination: httputil.NewPagination(page, pageSize, total),
 		},
 	})
 }
@@ -284,9 +243,9 @@ func (h *Handler) SearchPosts(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [put]
 func (h *Handler) UpdatePost(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -294,15 +253,12 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
 	}
 
-	var req dto.UpdatePostRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidate[dto.UpdatePostRequest](c)
+	if err != nil {
+		return nil
 	}
 
-	updatedPost, err := h.service.UpdatePost(uint(postID), userID, &req)
+	updatedPost, err := h.service.UpdatePost(uint(postID), userID, req)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
@@ -329,7 +285,7 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "글 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      204  "삭제 성공"
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -337,9 +293,9 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [delete]
 func (h *Handler) DeletePost(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -357,12 +313,7 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("deletion_failed", "글 삭제에 실패했습니다"))
 	}
 
-	return c.JSON(dto.SuccessResponse{
-		Status: "success",
-		Data: fiber.Map{
-			"message": "삭제되었습니다",
-		},
-	})
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // ToggleLike godoc
@@ -379,9 +330,9 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /posts/{id}/like [post]
 func (h *Handler) ToggleLike(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
 	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -444,9 +395,9 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /drafts [get]
 func (h *Handler) GetDrafts(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 	posts, err := h.service.GetDrafts(userID)
 	if err != nil {
