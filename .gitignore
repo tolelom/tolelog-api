@@ -90,4 +90,5 @@ $RECYCLE.BIN/
 .idea/
 .claude/
 
-# End of https://www.toptal.com/developers/gitignore/api/windows,macos,go,dotenv
+# End of https://www.toptal.com/developers/gitignore/api/windows,macos,go,dotenvcover.out
+PROJECT_REVIEW.md
