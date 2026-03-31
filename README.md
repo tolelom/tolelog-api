@@ -1,6 +1,7 @@
-# Fiber API Server
+# Tolelog Backend
 
-Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버입니다. JWT 인증, GORM/MySQL, Redis 캐싱, Swagger API 문서화를 지원합니다.
+Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
+프론트엔드는 [tolelog](https://github.com/tolelom/tolelog) 참고.
 
 ## Tech Stack
 
@@ -72,8 +73,8 @@ Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버입니다. JWT 
 1. Clone the repository
 
 ```bash
-git clone https://github.com/tolelom/fiber_api_server.git
-cd fiber_api_server
+git clone https://github.com/tolelom/tolelog-backend.git
+cd tolelog-backend
 ```
 
 2. Install dependencies
