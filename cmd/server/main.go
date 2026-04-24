@@ -39,7 +39,7 @@ func main() {
 		ErrorHandler: middleware.ErrorHandler,
 		BodyLimit:    5 * 1024 * 1024, // 5MB
 	})
-	router.Setup(app, cfg)
+	cleanup := router.Setup(app, cfg)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -57,10 +57,21 @@ func main() {
 	<-quit
 	slog.Info("서버 종료 중...")
 
-	if err := app.Shutdown(); err != nil {
-		slog.Error("서버 종료 실패", "error", err)
-		os.Exit(1)
+	shutdownErr := app.Shutdown()
+	if shutdownErr != nil {
+		slog.Error("서버 종료 실패", "error", shutdownErr)
 	}
 
+	// HTTP 서버 종료 후 리소스 정리 (Redis → DB 순)
+	cleanup()
+	if err := cfg.CloseDatabase(); err != nil {
+		slog.Warn("DB 연결 종료 실패", "error", err)
+	} else {
+		slog.Info("DB 연결 종료")
+	}
+
+	if shutdownErr != nil {
+		os.Exit(1)
+	}
 	slog.Info("서버 정상 종료")
 }

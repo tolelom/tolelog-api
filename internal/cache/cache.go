@@ -69,3 +69,13 @@ func (c *Cache) DeleteByPattern(pattern string) error {
 	}
 	return nil
 }
+
+// Ping verifies the Redis connection within the given timeout.
+func (c *Cache) Ping(ctx context.Context) error {
+	return c.client.Ping(ctx).Err()
+}
+
+// Close releases the underlying Redis client.
+func (c *Cache) Close() error {
+	return c.client.Close()
+}

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"log/slog"
 	"time"
 	"tolelom_api/internal/cache"
@@ -10,9 +11,9 @@ import (
 	"tolelom_api/internal/feed"
 	"tolelom_api/internal/image"
 	"tolelom_api/internal/middleware"
-	"tolelom_api/internal/sitemap"
 	"tolelom_api/internal/post"
 	"tolelom_api/internal/series"
+	"tolelom_api/internal/sitemap"
 	"tolelom_api/internal/tag"
 	"tolelom_api/internal/user"
 
@@ -31,7 +32,18 @@ type HealthResponse struct {
 	Message string `json:"message,omitempty" example:"Server is running"`
 }
 
-func Setup(app *fiber.App, cfg *config.Config) {
+type ReadinessResponse struct {
+	Status   string `json:"status" example:"ok"`
+	Database string `json:"database" example:"ok"`
+	Redis    string `json:"redis" example:"ok"`
+}
+
+// Setup wires middleware, services, and routes, returning a cleanup func
+// that releases resources (e.g., Redis client) created during setup.
+func Setup(app *fiber.App, cfg *config.Config) func() {
+	// Panic recovery: 모든 미들웨어/핸들러의 panic을 복구해야 하므로 가장 먼저 등록
+	app.Use(middleware.PanicRecovery())
+
 	// CORS: 프로덕션 + 개발 환경 오리진 모두 허용
 	allowOrigins := "https://tolelom.xyz, https://www.tolelom.xyz, https://blog.tolelom.xyz"
 	if cfg.Environment == "development" {
@@ -104,6 +116,44 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		})
 	})
 
+	// Readiness check: DB + Redis 상태까지 확인
+	// @Summary		Readiness Check
+	// @Description	DB와 Redis 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
+	// @Tags			Health
+	// @Produce		json
+	// @Success		200	{object}	ReadinessResponse
+	// @Failure		503	{object}	ReadinessResponse
+	// @Router			/health/ready [get]
+	app.Get("/health/ready", func(c *fiber.Ctx) error {
+		resp := ReadinessResponse{Status: "ok", Database: "ok", Redis: "ok"}
+		httpStatus := fiber.StatusOK
+
+		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
+		defer cancel()
+
+		if sqlDB, err := cfg.DB.DB(); err != nil {
+			resp.Database = "error: " + err.Error()
+			resp.Status = "degraded"
+			httpStatus = fiber.StatusServiceUnavailable
+		} else if err := sqlDB.PingContext(ctx); err != nil {
+			resp.Database = "error: " + err.Error()
+			resp.Status = "degraded"
+			httpStatus = fiber.StatusServiceUnavailable
+		}
+
+		if postCache == nil {
+			resp.Redis = "disabled"
+		} else if err := postCache.Ping(ctx); err != nil {
+			resp.Redis = "error: " + err.Error()
+			// Redis는 선택적 의존성이므로 degraded로만 표시하고 200 유지하지 않음.
+			// 운영상 자동 복구를 원하면 200 반환해도 되지만, 명시적 degraded 신호를 위해 503 유지.
+			resp.Status = "degraded"
+			httpStatus = fiber.StatusServiceUnavailable
+		}
+
+		return c.Status(httpStatus).JSON(resp)
+	})
+
 	// RSS 피드
 	app.Get("/feed", feedHandler.Feed)
 
@@ -160,6 +210,15 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		},
 	})
 
+	// Comment write rate limiting (분당 20회, 작성/수정/삭제)
+	commentLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "댓글 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
+		},
+	})
+
 	// Upload route (인증 필요 + rate limiting)
 	api.Post("/upload", uploadLimiter, middleware.AuthMiddleware(cfg), imageHandler.Upload)
 
@@ -182,10 +241,10 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	posts.Get("/:id/like", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
 
 	// Comment routes
-	posts.Get("/:id/comments", readLimiter, commentHandler.GetComments)                              // 댓글 목록 조회
-	posts.Post("/:id/comments", middleware.AuthMiddleware(cfg), commentHandler.CreateComment)        // 댓글 작성 (인증 필요)
-	posts.Put("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)    // 댓글 수정 (인증 필요)
-	posts.Delete("/:id/comments/:comment_id", middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요)
+	posts.Get("/:id/comments", readLimiter, commentHandler.GetComments)                                                    // 댓글 목록 조회
+	posts.Post("/:id/comments", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.CreateComment)              // 댓글 작성 (인증 필요, rate limiting)
+	posts.Put("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)   // 댓글 수정 (인증 필요, rate limiting)
+	posts.Delete("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요, rate limiting)
 
 	// Series navigation (under posts)
 	posts.Get("/:id/series-nav", readLimiter, seriesHandler.GetSeriesNavigation)
@@ -208,4 +267,14 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	users.Get("/:user_id", readLimiter, userHandler.GetProfile)                    // 사용자 프로필
 	users.Get("/:user_id/series", readLimiter, seriesHandler.GetUserSeries)       // 사용자 시리즈 목록
 	users.Get("/:user_id/posts", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
+
+	return func() {
+		if postCache != nil {
+			if err := postCache.Close(); err != nil {
+				slog.Warn("Redis 연결 종료 실패", "error", err)
+			} else {
+				slog.Info("Redis 연결 종료")
+			}
+		}
+	}
 }

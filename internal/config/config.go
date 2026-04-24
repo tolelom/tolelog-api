@@ -120,6 +120,18 @@ func (c *Config) InitDataBase() error {
 	return nil
 }
 
+// CloseDatabase closes the underlying sql.DB connection pool.
+func (c *Config) CloseDatabase() error {
+	if c.DB == nil {
+		return nil
+	}
+	sqlDB, err := c.DB.DB()
+	if err != nil {
+		return fmt.Errorf("DB instance 조회 실패: %w", err)
+	}
+	return sqlDB.Close()
+}
+
 // MigrateTagsData migrates comma-separated tags from posts.tags column into the normalized tags/post_tags tables.
 func (c *Config) MigrateTagsData(db *gorm.DB) error {
 	var tagCount int64
