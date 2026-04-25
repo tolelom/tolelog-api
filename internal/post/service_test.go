@@ -1,6 +1,101 @@
 package post
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"gorm.io/gorm"
+)
+
+// --- NewService ---
+
+func TestNewService(t *testing.T) {
+	db := &gorm.DB{}
+	svc := NewService(db, nil)
+	if svc == nil {
+		t.Fatal("expected non-nil service")
+	}
+}
+
+// --- SanitizeSearchQuery ---
+
+func TestSanitizeSearchQuery_Valid(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"golang", "golang"},
+		{"  go lang  ", "go lang"},
+		{"한글 검색어", "한글 검색어"},
+		{"hello, world!", "hello, world!"},
+		{"test (query)", "test (query)"},
+	}
+	for _, tt := range tests {
+		result, err := SanitizeSearchQuery(tt.input)
+		if err != nil {
+			t.Errorf("SanitizeSearchQuery(%q) unexpected error: %v", tt.input, err)
+		}
+		if result != tt.expected {
+			t.Errorf("SanitizeSearchQuery(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestSanitizeSearchQuery_TooShort(t *testing.T) {
+	_, err := SanitizeSearchQuery("a")
+	if err == nil {
+		t.Error("expected error for single-char query")
+	}
+}
+
+func TestSanitizeSearchQuery_Empty(t *testing.T) {
+	_, err := SanitizeSearchQuery("")
+	if err == nil {
+		t.Error("expected error for empty query")
+	}
+}
+
+func TestSanitizeSearchQuery_TooLong(t *testing.T) {
+	long := strings.Repeat("a", 101)
+	_, err := SanitizeSearchQuery(long)
+	if err == nil {
+		t.Error("expected error for query over 100 chars")
+	}
+}
+
+func TestSanitizeSearchQuery_ExactlyMinLength(t *testing.T) {
+	_, err := SanitizeSearchQuery("go")
+	if err != nil {
+		t.Errorf("expected no error for 2-char query, got: %v", err)
+	}
+}
+
+func TestSanitizeSearchQuery_ExactlyMaxLength(t *testing.T) {
+	exact := strings.Repeat("a", 100)
+	result, err := SanitizeSearchQuery(exact)
+	if err != nil {
+		t.Errorf("expected no error for 100-char query, got: %v", err)
+	}
+	if result != exact {
+		t.Error("result mismatch for 100-char query")
+	}
+}
+
+func TestSanitizeSearchQuery_InvalidChars(t *testing.T) {
+	invalids := []string{
+		"search%",
+		"query`backtick",
+		"pipe|test",
+		"amp&test",
+		"dollar$sign",
+	}
+	for _, q := range invalids {
+		_, err := SanitizeSearchQuery(q)
+		if err == nil {
+			t.Errorf("SanitizeSearchQuery(%q) should reject invalid chars", q)
+		}
+	}
+}
 
 func TestSanitizeTag_ValidTags(t *testing.T) {
 	tests := []struct {

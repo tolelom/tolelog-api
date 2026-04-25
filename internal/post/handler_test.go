@@ -105,11 +105,14 @@ func setupPostApp(svc Service) *fiber.App {
 
 	app.Post("/posts", h.CreatePost)
 	app.Get("/posts", h.GetPublicPosts)
+	app.Get("/posts/search", h.SearchPosts)
 	app.Get("/posts/:id", h.GetPost)
+	app.Put("/posts/:id", h.UpdatePost)
 	app.Delete("/posts/:id", h.DeletePost)
 	app.Post("/posts/:id/like", h.ToggleLike)
 	app.Get("/posts/:id/like", h.GetLikeStatus)
 	app.Get("/drafts", h.GetDrafts)
+	app.Get("/users/:user_id/posts", h.GetUserPosts)
 
 	return app
 }
@@ -126,11 +129,14 @@ func setupAuthPostApp(svc Service, userID uint) *fiber.App {
 
 	app.Post("/posts", h.CreatePost)
 	app.Get("/posts", h.GetPublicPosts)
+	app.Get("/posts/search", h.SearchPosts)
 	app.Get("/posts/:id", h.GetPost)
+	app.Put("/posts/:id", h.UpdatePost)
 	app.Delete("/posts/:id", h.DeletePost)
 	app.Post("/posts/:id/like", h.ToggleLike)
 	app.Get("/posts/:id/like", h.GetLikeStatus)
 	app.Get("/drafts", h.GetDrafts)
+	app.Get("/users/:user_id/posts", h.GetUserPosts)
 
 	return app
 }
@@ -656,6 +662,353 @@ func TestGetLikeStatus_InvalidID(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
+// --- GetUserPosts ---
+
+func TestGetUserPosts_Success(t *testing.T) {
+	ms := &mockService{
+		getUserPostsFn: func(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
+			return []model.Post{
+				{ID: 1, Title: "Post 1", UserID: userID, IsPublic: true},
+			}, 1, nil
+		},
+	}
+	app := setupPostApp(ms)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/1/posts", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result dto.SuccessResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected 'success', got %q", result.Status)
+	}
+}
+
+func TestGetUserPosts_InvalidUserID(t *testing.T) {
+	app := setupPostApp(&mockService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/users/abc/posts", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestGetUserPosts_InvalidTag(t *testing.T) {
+	ms := &mockService{
+		getUserPostsFn: func(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
+			return nil, 0, ErrInvalidTag
+		},
+	}
+	app := setupPostApp(ms)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/1/posts?tag=%invalid%", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestGetUserPosts_ServiceError(t *testing.T) {
+	ms := &mockService{
+		getUserPostsFn: func(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
+			return nil, 0, errors.New("db error")
+		},
+	}
+	app := setupPostApp(ms)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/1/posts", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
+	}
+}
+
+func TestGetUserPosts_WithAuth_PassesCurrentUserID(t *testing.T) {
+	var capturedCurrentUserID *uint
+	ms := &mockService{
+		getUserPostsFn: func(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
+			capturedCurrentUserID = currentUserID
+			return []model.Post{}, 0, nil
+		},
+	}
+	app := setupAuthPostApp(ms, 2)
+
+	req := httptest.NewRequest(http.MethodGet, "/users/1/posts", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+	if capturedCurrentUserID == nil || *capturedCurrentUserID != 2 {
+		t.Errorf("expected currentUserID=2, got %v", capturedCurrentUserID)
+	}
+}
+
+// --- SearchPosts ---
+
+func TestSearchPosts_Success(t *testing.T) {
+	ms := &mockService{
+		searchPostsFn: func(query string, page, pageSize int) ([]model.Post, int64, error) {
+			return []model.Post{
+				{ID: 1, Title: "Go Basics", IsPublic: true},
+			}, 1, nil
+		},
+	}
+	app := setupPostApp(ms)
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/search?q=golang", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result dto.SuccessResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected 'success', got %q", result.Status)
+	}
+}
+
+func TestSearchPosts_EmptyQuery(t *testing.T) {
+	app := setupPostApp(&mockService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/search?q=", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestSearchPosts_SingleCharQuery(t *testing.T) {
+	app := setupPostApp(&mockService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/search?q=a", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestSearchPosts_InvalidCharsInQuery(t *testing.T) {
+	app := setupPostApp(&mockService{})
+
+	// %25 decodes to %, which is not in the allowed pattern
+	req := httptest.NewRequest(http.MethodGet, "/posts/search?q=go%25test", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestSearchPosts_ServiceError(t *testing.T) {
+	ms := &mockService{
+		searchPostsFn: func(query string, page, pageSize int) ([]model.Post, int64, error) {
+			return nil, 0, errors.New("db error")
+		},
+	}
+	app := setupPostApp(ms)
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/search?q=golang", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
+	}
+}
+
+// --- UpdatePost ---
+
+func TestUpdatePost_Success(t *testing.T) {
+	title := "Updated Title"
+	ms := &mockService{
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return &model.Post{ID: postID, Title: title, UserID: userID, User: model.User{Username: "tester"}}, nil
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+
+	body := `{"title":"Updated Title"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_Unauthorized(t *testing.T) {
+	app := setupPostApp(&mockService{})
+
+	body := `{"title":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_InvalidID(t *testing.T) {
+	app := setupAuthPostApp(&mockService{}, 1)
+
+	body := `{"title":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/abc", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_InvalidJSON(t *testing.T) {
+	app := setupAuthPostApp(&mockService{}, 1)
+
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_NotFound(t *testing.T) {
+	ms := &mockService{
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return nil, ErrPostNotFound
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+
+	body := `{"title":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/999", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_Forbidden(t *testing.T) {
+	ms := &mockService{
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return nil, ErrUnauthorized
+		},
+	}
+	app := setupAuthPostApp(ms, 2)
+
+	body := `{"title":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_NoFieldsToUpdate(t *testing.T) {
+	ms := &mockService{
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return nil, ErrNoFieldsToUpdate
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdatePost_ServiceError(t *testing.T) {
+	ms := &mockService{
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+
+	body := `{"title":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
 	}
 }
 

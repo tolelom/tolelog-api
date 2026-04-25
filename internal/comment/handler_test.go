@@ -18,15 +18,14 @@ func setupTestApp(svc Service) *fiber.App {
 	app := fiber.New()
 	h := NewHandler(svc)
 
-	// Routes mimicking the real router setup
 	posts := app.Group("/posts")
 	posts.Post("/:id/comments", h.CreateComment)
 	posts.Get("/:id/comments", h.GetComments)
+	posts.Put("/:id/comments/:comment_id", h.UpdateComment)
 	posts.Delete("/:id/comments/:comment_id", h.DeleteComment)
 
 	return app
 }
-
 
 func setupAuthApp(svc Service, userID uint) *fiber.App {
 	app := fiber.New()
@@ -40,6 +39,7 @@ func setupAuthApp(svc Service, userID uint) *fiber.App {
 	posts := app.Group("/posts")
 	posts.Post("/:id/comments", h.CreateComment)
 	posts.Get("/:id/comments", h.GetComments)
+	posts.Put("/:id/comments/:comment_id", h.UpdateComment)
 	posts.Delete("/:id/comments/:comment_id", h.DeleteComment)
 
 	return app
@@ -458,6 +458,164 @@ func TestDeleteComment_Handler_ServiceError(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d", resp.StatusCode)
+	}
+}
+
+// --- UpdateComment handler tests ---
+
+func TestUpdateComment_Handler_Success(t *testing.T) {
+	ms := &mockService{
+		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+			return &model.Comment{ID: commentID, UserID: userID, Content: content, User: model.User{Username: "tester"}}, nil
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"content":"updated comment"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result dto.SuccessResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected 'success', got %q", result.Status)
+	}
+}
+
+func TestUpdateComment_Handler_Unauthorized(t *testing.T) {
+	app := setupTestApp(&mockService{})
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_InvalidPostID(t *testing.T) {
+	app := setupAuthApp(&mockService{}, 1)
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/abc/comments/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_InvalidCommentID(t *testing.T) {
+	app := setupAuthApp(&mockService{}, 1)
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/abc", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_InvalidJSON(t *testing.T) {
+	app := setupAuthApp(&mockService{}, 1)
+
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/1", strings.NewReader("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_NotFound(t *testing.T) {
+	ms := &mockService{
+		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+			return nil, ErrCommentNotFound
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/999", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_Forbidden(t *testing.T) {
+	ms := &mockService{
+		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+			return nil, ErrUnauthorized
+		},
+	}
+	app := setupAuthApp(ms, 2)
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestUpdateComment_Handler_ServiceError(t *testing.T) {
+	ms := &mockService{
+		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"content":"test"}`
+	req := httptest.NewRequest(http.MethodPut, "/posts/1/comments/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
 	}
 }
 

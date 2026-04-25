@@ -23,6 +23,7 @@ func setupTestApp(svc AuthService) *fiber.App {
 	app.Post("/auth/refresh", h.RefreshToken)
 	app.Get("/users/:user_id", h.GetProfile)
 	app.Put("/users/avatar", h.UploadAvatar)
+	app.Put("/users/password", h.ChangePassword)
 
 	return app
 }
@@ -41,6 +42,7 @@ func setupAuthApp(svc AuthService, userID uint) *fiber.App {
 	app.Post("/auth/refresh", h.RefreshToken)
 	app.Get("/users/:user_id", h.GetProfile)
 	app.Put("/users/avatar", h.UploadAvatar)
+	app.Put("/users/password", h.ChangePassword)
 
 	return app
 }
@@ -685,6 +687,164 @@ func TestDeleteMe_ServiceError(t *testing.T) {
 	app := setupAuthLogoutApp(ms, 1)
 
 	req := httptest.NewRequest(http.MethodDelete, "/users/me", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", resp.StatusCode)
+	}
+}
+
+// --- ChangePassword ---
+
+func TestChangePassword_Success(t *testing.T) {
+	ms := &mockAuthService{
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
+			return nil
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"current_password":"oldpass1","new_password":"newpass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	var result dto.SuccessResponse
+	respBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if result.Status != "success" {
+		t.Errorf("expected 'success', got %q", result.Status)
+	}
+}
+
+func TestChangePassword_Unauthorized(t *testing.T) {
+	app := setupTestApp(&mockAuthService{})
+
+	body := `{"current_password":"oldpass1","new_password":"newpass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_InvalidJSON(t *testing.T) {
+	app := setupAuthApp(&mockAuthService{}, 1)
+
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader("{bad"))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_MissingFields(t *testing.T) {
+	app := setupAuthApp(&mockAuthService{}, 1)
+
+	body := `{"current_password":"oldpass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_NewPasswordTooShort(t *testing.T) {
+	app := setupAuthApp(&mockAuthService{}, 1)
+
+	body := `{"current_password":"oldpass1","new_password":"ab"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_InvalidCurrentPassword(t *testing.T) {
+	ms := &mockAuthService{
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
+			return ErrInvalidPassword
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"current_password":"wrongpass","new_password":"newpass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_SamePassword(t *testing.T) {
+	ms := &mockAuthService{
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
+			return ErrSamePassword
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"current_password":"samepass1","new_password":"samepass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestChangePassword_ServiceError(t *testing.T) {
+	ms := &mockAuthService{
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
+			return errors.New("db error")
+		},
+	}
+	app := setupAuthApp(ms, 1)
+
+	body := `{"current_password":"oldpass1","new_password":"newpass1"}`
+	req := httptest.NewRequest(http.MethodPut, "/users/password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
