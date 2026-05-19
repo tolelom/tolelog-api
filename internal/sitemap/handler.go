@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"tolelom_api/internal/utils"
+
 	"github.com/gofiber/fiber/v2"
 )
 
-const siteURL = "https://tolelom.xyz"
+const siteURL = "https://blog.tolelom.xyz"
 
 // XML Sitemap structs (sitemaps.org protocol)
 
@@ -24,8 +26,10 @@ type siteURL_ struct {
 }
 
 // Entry holds minimal data for sitemap generation.
+// Title 은 슬러그 생성에 사용된다.
 type Entry struct {
 	ID        uint
+	Title     string
 	UpdatedAt time.Time
 }
 
@@ -60,8 +64,9 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
 	for _, p := range posts {
+		// 캐노니컬 URL: /post/{slug}-{id} (슬러그 없으면 /post/{id}).
 		urls = append(urls, siteURL_{
-			Loc:     fmt.Sprintf("%s/post/%d", siteURL, p.ID),
+			Loc:     siteURL + utils.PostSlugPath(p.Title, p.ID),
 			LastMod: p.UpdatedAt.Format(time.DateOnly),
 		})
 	}

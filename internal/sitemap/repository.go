@@ -17,7 +17,7 @@ func NewRepository(db *gorm.DB) Repository {
 func (r *gormRepository) GetPublicPostEntries() ([]Entry, error) {
 	var rows []Entry
 	err := r.db.Model(&model.Post{}).
-		Select("id, updated_at").
+		Select("id, title, updated_at").
 		Where("is_public = ? AND deleted_at IS NULL AND status = ?", true, "published").
 		Order("updated_at DESC").
 		Find(&rows).Error

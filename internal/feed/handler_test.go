@@ -127,20 +127,4 @@ func TestExcerpt(t *testing.T) {
 	}
 }
 
-func TestUintToStr(t *testing.T) {
-	tests := []struct {
-		input    uint
-		expected string
-	}{
-		{0, "0"},
-		{1, "1"},
-		{42, "42"},
-		{12345, "12345"},
-	}
-	for _, tt := range tests {
-		result := uintToStr(tt.input)
-		if result != tt.expected {
-			t.Errorf("uintToStr(%d) = %q, want %q", tt.input, result, tt.expected)
-		}
-	}
-}
+// uintToStr 헬퍼는 utils.PostSlugPath 도입으로 제거되었음. (옛 테스트는 삭제)

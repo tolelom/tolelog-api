@@ -3,7 +3,9 @@ package middleware
 import (
 	"errors"
 	"log/slog"
+	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -29,7 +31,13 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		"ip", c.IP(),
 	)
 
+	// 5xx 서버 오류만 외부 리포팅 (4xx 는 클라이언트 문제이므로 노이즈)
 	if code >= 500 {
+		utils.CaptureException(err, map[string]string{
+			"method": c.Method(),
+			"path":   c.Path(),
+			"status": strconv.Itoa(code),
+		})
 		message = "서버 내부 오류가 발생했습니다"
 	}
 

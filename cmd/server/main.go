@@ -17,6 +17,7 @@ import (
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/router"
+	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -29,6 +30,9 @@ func main() {
 		slog.Error("설정 로드 실패", "error", err)
 		os.Exit(1)
 	}
+
+	utils.InitSentry()
+	defer utils.FlushSentry()
 
 	if err := cfg.InitDataBase(); err != nil {
 		slog.Error("데이터베이스 연결 실패", "error", err)

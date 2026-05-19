@@ -42,7 +42,7 @@ func setupSitemapApp(repo Repository) *fiber.App {
 func TestSitemap_Success(t *testing.T) {
 	now := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
 	repo := &mockRepo{
-		postsFn:  func() ([]Entry, error) { return []Entry{{ID: 1, UpdatedAt: now}}, nil },
+		postsFn:  func() ([]Entry, error) { return []Entry{{ID: 1, Title: "Hello World", UpdatedAt: now}}, nil },
 		seriesFn: func() ([]Entry, error) { return []Entry{{ID: 2, UpdatedAt: now}}, nil },
 	}
 	app := setupSitemapApp(repo)
@@ -58,10 +58,11 @@ func TestSitemap_Success(t *testing.T) {
 
 	body, _ := io.ReadAll(resp.Body)
 	xmlStr := string(body)
-	if !containsStr(xmlStr, "https://tolelom.xyz/post/1") {
-		t.Error("missing post URL in sitemap")
+	// 슬러그 URL 형태: /post/{slug}-{id}
+	if !containsStr(xmlStr, "https://blog.tolelom.xyz/post/hello-world-1") {
+		t.Errorf("missing slug post URL in sitemap; body: %s", xmlStr)
 	}
-	if !containsStr(xmlStr, "https://tolelom.xyz/series/2") {
+	if !containsStr(xmlStr, "https://blog.tolelom.xyz/series/2") {
 		t.Error("missing series URL in sitemap")
 	}
 }
@@ -109,8 +110,8 @@ func TestURLSetMarshal(t *testing.T) {
 	set := urlSet{
 		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
 		URLs: []siteURL_{
-			{Loc: "https://tolelom.xyz", LastMod: "2026-03-18"},
-			{Loc: "https://tolelom.xyz/post/1", LastMod: "2026-03-17"},
+			{Loc: "https://blog.tolelom.xyz", LastMod: "2026-03-18"},
+			{Loc: "https://blog.tolelom.xyz/post/hello-1", LastMod: "2026-03-17"},
 		},
 	}
 
@@ -121,16 +122,13 @@ func TestURLSetMarshal(t *testing.T) {
 
 	xmlStr := string(output)
 
-	// Verify root element and namespace are present
 	if !containsStr(xmlStr, "http://www.sitemaps.org/schemas/sitemap/0.9") {
 		t.Error("missing sitemap namespace in output")
 	}
-
-	// Verify URLs are present
-	if !containsStr(xmlStr, "<loc>https://tolelom.xyz</loc>") {
+	if !containsStr(xmlStr, "<loc>https://blog.tolelom.xyz</loc>") {
 		t.Error("missing root URL in output")
 	}
-	if !containsStr(xmlStr, "<loc>https://tolelom.xyz/post/1</loc>") {
+	if !containsStr(xmlStr, "<loc>https://blog.tolelom.xyz/post/hello-1</loc>") {
 		t.Error("missing post URL in output")
 	}
 	if !containsStr(xmlStr, "<lastmod>2026-03-18</lastmod>") {

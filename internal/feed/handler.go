@@ -11,7 +11,7 @@ import (
 
 const (
 	rssItemLimit  = 20
-	siteURL       = "https://tolelom.xyz"
+	siteURL       = "https://blog.tolelom.xyz"
 	blogTitle     = "Tolelog"
 	blogDesc      = "Tolelog 블로그"
 	excerptLength = 200
@@ -78,13 +78,15 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 		if p.User.ID != 0 {
 			author = p.User.Username
 		}
+		// 캐노니컬 URL: /post/{slug}-{id}
+		postLink := siteURL + utils.PostSlugPath(p.Title, p.ID)
 		items = append(items, rssItem{
 			Title:       p.Title,
-			Link:        siteURL + "/post/" + uintToStr(p.ID),
+			Link:        postLink,
 			Description: excerpt(p.Content, excerptLength),
 			Author:      author,
 			PubDate:     p.CreatedAt.Format(time.RFC1123Z),
-			GUID:        siteURL + "/post/" + uintToStr(p.ID),
+			GUID:        postLink,
 		})
 	}
 
@@ -112,16 +114,4 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 
 	c.Set("Content-Type", "application/rss+xml; charset=utf-8")
 	return c.Send(append([]byte(xml.Header), output...))
-}
-
-func uintToStr(n uint) string {
-	if n == 0 {
-		return "0"
-	}
-	var digits []byte
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	return string(digits)
 }

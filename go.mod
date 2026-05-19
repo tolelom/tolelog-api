@@ -1,6 +1,6 @@
 module tolelom_api
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/go-playground/validator/v10 v10.28.0
@@ -26,6 +26,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.11 // indirect
+	github.com/getsentry/sentry-go v0.46.2 // indirect
 	github.com/go-openapi/jsonpointer v0.22.3 // indirect
 	github.com/go-openapi/jsonreference v0.21.3 // indirect
 	github.com/go-openapi/spec v0.22.1 // indirect
