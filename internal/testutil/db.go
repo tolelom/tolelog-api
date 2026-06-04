@@ -29,7 +29,15 @@ func SetupDB(t *testing.T) *gorm.DB {
 		t.Fatalf("sql.DB 핸들 획득 실패: %v", err)
 	}
 	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 
+	t.Cleanup(func() {
+		if err := sqlDB.Close(); err != nil {
+			t.Errorf("sql.DB 닫기 실패: %v", err)
+		}
+	})
+
+	// 순서 중요: User < Series < Post (Post가 둘 다 참조), Tag는 post_tags 정션 생성 전에 필요.
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Tag{},

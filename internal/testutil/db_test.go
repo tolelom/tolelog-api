@@ -14,9 +14,20 @@ func TestSetupDB_MigratesAllModels(t *testing.T) {
 	if err := db.Create(u).Error; err != nil {
 		t.Fatalf("user insert 실패: %v", err)
 	}
-	p := &model.Post{Title: "t", Content: "c", UserID: u.ID}
+	tag := &model.Tag{Name: "go"}
+	if err := db.Create(tag).Error; err != nil {
+		t.Fatalf("tag insert 실패: %v", err)
+	}
+	s := &model.Series{Title: "s", UserID: u.ID}
+	if err := db.Create(s).Error; err != nil {
+		t.Fatalf("series insert 실패: %v", err)
+	}
+	p := &model.Post{Title: "t", Content: "c", UserID: u.ID, SeriesID: &s.ID}
 	if err := db.Create(p).Error; err != nil {
 		t.Fatalf("post insert 실패: %v", err)
+	}
+	if err := db.Model(p).Association("Tags").Append(tag); err != nil {
+		t.Fatalf("post-tag M:N 연결 실패: %v", err)
 	}
 	c := &model.Comment{PostID: p.ID, UserID: u.ID, Content: "hi"}
 	if err := db.Create(c).Error; err != nil {
