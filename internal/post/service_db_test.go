@@ -196,3 +196,48 @@ func TestGetDrafts_OnlyOwnDrafts(t *testing.T) {
 		t.Fatalf("title=%q, want 내 초안", drafts[0].Title)
 	}
 }
+
+// 경로 7: 같은 유저 두 번 토글 시 liked 상태/count 증감 정상
+// 순차 시나리오 (좋아요 → 취소 → 다른 유저 좋아요) — 단계별 상태 누적에 의존.
+func TestToggleLike_TogglesAndCounts(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+
+	author := testutil.MakeUser(t, db, "author")
+	fan := testutil.MakeUser(t, db, "fan")
+	post := testutil.MakePost(t, db, author.ID)
+
+	// 1차 토글: 좋아요
+	liked, count, err := svc.ToggleLike(post.ID, fan.ID)
+	if err != nil {
+		t.Fatalf("1차 토글 실패: %v", err)
+	}
+	if !liked || count != 1 {
+		t.Fatalf("1차: liked=%v count=%d, want true/1", liked, count)
+	}
+	if !svc.IsLiked(post.ID, fan.ID) {
+		t.Fatal("IsLiked가 false — 좋아요 기록 안 됨")
+	}
+
+	// 2차 토글: 취소
+	liked, count, err = svc.ToggleLike(post.ID, fan.ID)
+	if err != nil {
+		t.Fatalf("2차 토글 실패: %v", err)
+	}
+	if liked || count != 0 {
+		t.Fatalf("2차: liked=%v count=%d, want false/0", liked, count)
+	}
+	if svc.IsLiked(post.ID, fan.ID) {
+		t.Fatal("IsLiked가 true — 취소 반영 안 됨")
+	}
+
+	// 다른 유저의 좋아요는 독립적
+	other := testutil.MakeUser(t, db, "other-fan")
+	_, count, err = svc.ToggleLike(post.ID, other.ID)
+	if err != nil {
+		t.Fatalf("3차 토글 실패: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("count=%d, want 1", count)
+	}
+}
