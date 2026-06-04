@@ -42,12 +42,12 @@
 
 **Comment 서비스 (3):**
 8. `CreateComment` — 비공개 글에 타인 댓글 차단
-9. `DeleteComment` — 댓글 작성자 본인 or 글 작성자만 삭제 가능
+9. `DeleteComment` — 댓글 작성자 본인만 삭제 가능 (현재 구현·Swagger 문서 기준. "글 작성자도 삭제 가능"은 미구현 — 도입 여부는 별도 제품 결정)
 10. `UpdateComment` — 작성자 본인만 수정
 
 **User 서비스 (2):**
 11. `Login` — 잘못된 비밀번호 차단 (bcrypt 해시 검증 경유)
-12. `Register` — 중복 username/email 거부
+12. `Register` — 중복 username 거부 (User 모델에 email 필드 없음)
 
 ## 4. 구현 구조
 
