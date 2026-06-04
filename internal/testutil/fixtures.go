@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 )
 
 // DefaultPassword is the plaintext password for all fixture users.
@@ -17,13 +17,15 @@ const DefaultPassword = "fixture-plain-pw-1!"
 // MakeUser creates a user with a real bcrypt hash of DefaultPassword.
 func MakeUser(t *testing.T, db *gorm.DB, username string) *model.User {
 	t.Helper()
-	hash, err := utils.HashPassword(DefaultPassword)
+	// 테스트 전용 bcrypt cost — 보안 강도 불필요, 속도 우선 (MinCost).
+	// CompareHashAndPassword는 cost 무관하게 동작하므로 검증은 그대로 통과한다.
+	hash, err := bcrypt.GenerateFromPassword([]byte(DefaultPassword), bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("비밀번호 해시 실패: %v", err)
 	}
 	u := &model.User{
 		Username:     username,
-		PasswordHash: hash,
+		PasswordHash: string(hash),
 		LastLogin:    time.Now(),
 	}
 	if err := db.Create(u).Error; err != nil {
@@ -34,10 +36,9 @@ func MakeUser(t *testing.T, db *gorm.DB, username string) *model.User {
 
 // postConfig collects desired post field values, including explicit bool overrides.
 type postConfig struct {
-	isPublic    bool
-	setIsPublic bool // true when WithPrivate() was called
-	status      string
-	title       string
+	forcePrivate bool
+	status       string
+	title        string
 }
 
 // PostOpt customizes a fixture post.
@@ -45,10 +46,7 @@ type PostOpt func(*postConfig)
 
 // WithPrivate marks the post as private (is_public=false).
 func WithPrivate() PostOpt {
-	return func(c *postConfig) {
-		c.isPublic = false
-		c.setIsPublic = true
-	}
+	return func(c *postConfig) { c.forcePrivate = true }
 }
 
 // WithStatus sets the post status (e.g. "draft").
@@ -69,9 +67,8 @@ func MakePost(t *testing.T, db *gorm.DB, userID uint, opts ...PostOpt) *model.Po
 	t.Helper()
 
 	cfg := &postConfig{
-		isPublic: true,
-		status:   "published",
-		title:    "테스트 글",
+		status: "published",
+		title:  "테스트 글",
 	}
 	for _, opt := range opts {
 		opt(cfg)
@@ -90,9 +87,9 @@ func MakePost(t *testing.T, db *gorm.DB, userID uint, opts ...PostOpt) *model.Po
 
 	// Apply explicit bool overrides via raw column update to bypass GORM's
 	// zero-value-omission behaviour for boolean columns with DB defaults.
-	if cfg.setIsPublic && !cfg.isPublic {
+	if cfg.forcePrivate {
 		if err := db.Model(p).UpdateColumn("is_public", false).Error; err != nil {
-			t.Fatalf("post fixture is_public 업데이트 실패: %v", err)
+			t.Fatalf("is_public 업데이트 실패: %v", err)
 		}
 		p.IsPublic = false
 	}
