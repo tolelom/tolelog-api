@@ -131,3 +131,68 @@ func TestDeletePost_OwnershipEnforced(t *testing.T) {
 		}
 	})
 }
+
+// 경로 5: 타인 프로필 조회 시 is_public=true && published 만, 본인은 전부
+func TestGetUserPosts_VisibilityByViewer(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+
+	owner := testutil.MakeUser(t, db, "owner")
+	viewer := testutil.MakeUser(t, db, "viewer")
+	testutil.MakePost(t, db, owner.ID)                               // 공개+published
+	testutil.MakePost(t, db, owner.ID, testutil.WithPrivate())       // 비공개
+	testutil.MakePost(t, db, owner.ID, testutil.WithStatus("draft")) // 초안
+
+	t.Run("비로그인은 공개 글만", func(t *testing.T) {
+		posts, total, err := svc.GetUserPosts(owner.ID, nil, 1, 10, "")
+		if err != nil {
+			t.Fatalf("조회 실패: %v", err)
+		}
+		if total != 1 || len(posts) != 1 {
+			t.Fatalf("total=%d len=%d, want 1/1", total, len(posts))
+		}
+	})
+
+	t.Run("타인은 공개 글만", func(t *testing.T) {
+		_, total, err := svc.GetUserPosts(owner.ID, &viewer.ID, 1, 10, "")
+		if err != nil {
+			t.Fatalf("조회 실패: %v", err)
+		}
+		if total != 1 {
+			t.Fatalf("total=%d, want 1", total)
+		}
+	})
+
+	t.Run("본인은 전부", func(t *testing.T) {
+		_, total, err := svc.GetUserPosts(owner.ID, &owner.ID, 1, 10, "")
+		if err != nil {
+			t.Fatalf("조회 실패: %v", err)
+		}
+		if total != 3 {
+			t.Fatalf("total=%d, want 3", total)
+		}
+	})
+}
+
+// 경로 6: 본인 초안만 조회
+func TestGetDrafts_OnlyOwnDrafts(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+
+	me := testutil.MakeUser(t, db, "me")
+	someone := testutil.MakeUser(t, db, "someone")
+	testutil.MakePost(t, db, me.ID, testutil.WithStatus("draft"), testutil.WithTitle("내 초안"))
+	testutil.MakePost(t, db, me.ID)                                    // published — 초안 아님
+	testutil.MakePost(t, db, someone.ID, testutil.WithStatus("draft")) // 남의 초안
+
+	drafts, err := svc.GetDrafts(me.ID)
+	if err != nil {
+		t.Fatalf("조회 실패: %v", err)
+	}
+	if len(drafts) != 1 {
+		t.Fatalf("len=%d, want 1", len(drafts))
+	}
+	if drafts[0].Title != "내 초안" {
+		t.Fatalf("title=%q, want 내 초안", drafts[0].Title)
+	}
+}
