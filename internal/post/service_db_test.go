@@ -154,22 +154,22 @@ func TestGetUserPosts_VisibilityByViewer(t *testing.T) {
 	})
 
 	t.Run("타인은 공개 글만", func(t *testing.T) {
-		_, total, err := svc.GetUserPosts(owner.ID, &viewer.ID, 1, 10, "")
+		posts, total, err := svc.GetUserPosts(owner.ID, &viewer.ID, 1, 10, "")
 		if err != nil {
 			t.Fatalf("조회 실패: %v", err)
 		}
-		if total != 1 {
-			t.Fatalf("total=%d, want 1", total)
+		if total != 1 || len(posts) != 1 {
+			t.Fatalf("total=%d len=%d, want 1/1", total, len(posts))
 		}
 	})
 
 	t.Run("본인은 전부", func(t *testing.T) {
-		_, total, err := svc.GetUserPosts(owner.ID, &owner.ID, 1, 10, "")
+		posts, total, err := svc.GetUserPosts(owner.ID, &owner.ID, 1, 10, "")
 		if err != nil {
 			t.Fatalf("조회 실패: %v", err)
 		}
-		if total != 3 {
-			t.Fatalf("total=%d, want 3", total)
+		if total != 3 || len(posts) != 3 {
+			t.Fatalf("total=%d len=%d, want 3/3", total, len(posts))
 		}
 	})
 }
