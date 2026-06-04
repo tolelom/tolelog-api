@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"tolelom_api/internal/dto"
+	"tolelom_api/internal/model"
 	"tolelom_api/internal/testutil"
 )
 
@@ -50,6 +52,78 @@ func TestGetPostByID_PrivatePostAccessControl(t *testing.T) {
 		}
 		if got.ID != public.ID {
 			t.Fatalf("got.ID = %d, want %d", got.ID, public.ID)
+		}
+	})
+}
+
+func strPtr(s string) *string { return &s }
+
+// 경로 3: 본인 글만 수정 가능
+func TestUpdatePost_OwnershipEnforced(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+
+	owner := testutil.MakeUser(t, db, "owner")
+	attacker := testutil.MakeUser(t, db, "attacker")
+	post := testutil.MakePost(t, db, owner.ID, testutil.WithTitle("원래 제목"))
+
+	t.Run("타인 수정 차단", func(t *testing.T) {
+		_, err := svc.UpdatePost(post.ID, attacker.ID, &dto.UpdatePostRequest{Title: strPtr("해킹")})
+		if !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("err = %v, want ErrUnauthorized", err)
+		}
+		// DB가 실제로 변경되지 않았는지 확인
+		var reloaded model.Post
+		if err := db.First(&reloaded, post.ID).Error; err != nil {
+			t.Fatalf("reload 실패: %v", err)
+		}
+		if reloaded.Title != "원래 제목" {
+			t.Fatalf("차단됐는데 DB 변경됨: %q", reloaded.Title)
+		}
+	})
+
+	t.Run("본인 수정 가능", func(t *testing.T) {
+		updated, err := svc.UpdatePost(post.ID, owner.ID, &dto.UpdatePostRequest{Title: strPtr("새 제목")})
+		if err != nil {
+			t.Fatalf("본인 수정 실패: %v", err)
+		}
+		if updated.Title != "새 제목" {
+			t.Fatalf("title = %q, want 새 제목", updated.Title)
+		}
+	})
+}
+
+// 경로 4: 본인 글만 삭제 가능
+func TestDeletePost_OwnershipEnforced(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+
+	owner := testutil.MakeUser(t, db, "owner")
+	attacker := testutil.MakeUser(t, db, "attacker")
+	post := testutil.MakePost(t, db, owner.ID)
+
+	t.Run("타인 삭제 차단", func(t *testing.T) {
+		err := svc.DeletePost(post.ID, attacker.ID)
+		if !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("err = %v, want ErrUnauthorized", err)
+		}
+	})
+
+	t.Run("본인 삭제 가능 (soft delete)", func(t *testing.T) {
+		if err := svc.DeletePost(post.ID, owner.ID); err != nil {
+			t.Fatalf("본인 삭제 실패: %v", err)
+		}
+		var count int64
+		db.Model(&model.Post{}).Where("id = ?", post.ID).Count(&count)
+		if count != 0 {
+			t.Fatal("soft delete 후에도 기본 쿼리에 노출됨")
+		}
+	})
+
+	t.Run("삭제된 글 재삭제는 NotFound", func(t *testing.T) {
+		err := svc.DeletePost(post.ID, owner.ID)
+		if !errors.Is(err, ErrPostNotFound) {
+			t.Fatalf("err = %v, want ErrPostNotFound", err)
 		}
 	})
 }
