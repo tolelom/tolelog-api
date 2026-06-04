@@ -59,6 +59,7 @@ func TestGetPostByID_PrivatePostAccessControl(t *testing.T) {
 func strPtr(s string) *string { return &s }
 
 // 경로 3: 본인 글만 수정 가능
+// 서브테스트는 순차 시나리오 (차단 → 수정) — 단독 실행 불가.
 func TestUpdatePost_OwnershipEnforced(t *testing.T) {
 	db := testutil.SetupDB(t)
 	svc := NewService(db, nil)
@@ -94,6 +95,7 @@ func TestUpdatePost_OwnershipEnforced(t *testing.T) {
 }
 
 // 경로 4: 본인 글만 삭제 가능
+// 서브테스트는 순차 시나리오 (차단 → 삭제 → 재삭제) — 단독 실행 불가.
 func TestDeletePost_OwnershipEnforced(t *testing.T) {
 	db := testutil.SetupDB(t)
 	svc := NewService(db, nil)
@@ -114,7 +116,9 @@ func TestDeletePost_OwnershipEnforced(t *testing.T) {
 			t.Fatalf("본인 삭제 실패: %v", err)
 		}
 		var count int64
-		db.Model(&model.Post{}).Where("id = ?", post.ID).Count(&count)
+		if err := db.Model(&model.Post{}).Where("id = ?", post.ID).Count(&count).Error; err != nil {
+			t.Fatalf("count 쿼리 실패: %v", err)
+		}
 		if count != 0 {
 			t.Fatal("soft delete 후에도 기본 쿼리에 노출됨")
 		}
