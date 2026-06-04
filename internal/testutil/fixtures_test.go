@@ -3,6 +3,7 @@ package testutil
 import (
 	"testing"
 
+	"tolelom_api/internal/model"
 	"tolelom_api/internal/utils"
 )
 
@@ -35,10 +36,26 @@ func TestMakePost_DefaultsAndOptions(t *testing.T) {
 	if priv.IsPublic {
 		t.Fatal("WithPrivate 적용 안 됨")
 	}
+	// DB에 실제로 false가 저장됐는지 재조회로 잠금 (GORM zero-value 함정 회귀 방지)
+	var reloadedPriv model.Post
+	if err := db.First(&reloadedPriv, priv.ID).Error; err != nil {
+		t.Fatalf("reload 실패: %v", err)
+	}
+	if reloadedPriv.IsPublic {
+		t.Fatal("DB에 is_public=true로 저장됨 — UpdateColumn 우회 깨짐")
+	}
 
 	draft := MakePost(t, db, u.ID, WithStatus("draft"))
 	if draft.Status != "draft" {
 		t.Fatalf("WithStatus 적용 안 됨: %q", draft.Status)
+	}
+	// DB에 실제로 draft가 저장됐는지 재조회로 잠금
+	var reloadedDraft model.Post
+	if err := db.First(&reloadedDraft, draft.ID).Error; err != nil {
+		t.Fatalf("reload 실패: %v", err)
+	}
+	if reloadedDraft.Status != "draft" {
+		t.Fatalf("DB에 status=%q로 저장됨 — WithStatus 미반영", reloadedDraft.Status)
 	}
 }
 
