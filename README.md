@@ -10,7 +10,7 @@ Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
 - **Cache**: Redis (선택, 미연결 시 캐시 없이 동작)
 - **Auth**: JWT (Access 15분 + Refresh 7일)
 - **Docs**: Swagger (개발 환경에서만 노출)
-- **Deploy**: GitHub Actions → Docker → GHCR → SSH 배포
+- **Deploy**: GitHub Actions → Docker → GHCR → GitOps 배포 (Renovate digest 핀 + git-sync-deploy)
 
 ## Features
 

@@ -82,4 +82,6 @@ Environment variables loaded from `.env` (see `.env_example`):
 
 ## CI/CD
 
-GitHub Actions (`.github/workflows/deploy_backend.yml`): on push to main, runs lint → test → build (linux/arm64) → Docker image push to GHCR → deploy via SSH + docker-compose.
+GitHub Actions (`.github/workflows/deploy_backend.yml`): on push to main, runs lint → test → build (linux/arm64) → Docker image push to GHCR as `:latest`, `:main`, `:<sha>`.
+
+**The workflow ends at the GHCR push — it does not deploy.** Deployment is GitOps: Renovate watches the `:main` tag and auto-pins the new digest into the `server-config` repo's compose file, and `git-sync-deploy` applies it on the server. SSH 22 is not exposed externally per security policy, so do not add an SSH deploy step back (see `846c0b4`).
