@@ -17,14 +17,14 @@ var (
 
 type Service interface {
 	CreateSeries(series *model.Series) error
-	GetSeriesByID(seriesID uint) (*model.Series, []model.Post, error)
+	GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, []model.Post, error)
 	GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error)
 	UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error)
 	DeleteSeries(seriesID uint, userID uint) error
 	AddPostToSeries(seriesID uint, postID uint, order int, userID uint) error
 	RemovePostFromSeries(seriesID uint, postID uint, userID uint) error
 	ReorderPosts(seriesID uint, postIDs []uint, userID uint) error
-	GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error)
+	GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesNavResponse, error)
 	CountPostsInSeries(seriesID uint) (int64, error)
 }
 
@@ -43,7 +43,17 @@ func (s *service) CreateSeries(series *model.Series) error {
 	return s.db.Preload("User").First(series, series.ID).Error
 }
 
-func (s *service) GetSeriesByID(seriesID uint) (*model.Series, []model.Post, error) {
+// seriesPostsVisibleTo scopes a series' posts to what the viewer may see:
+// the series owner sees every post, others only public published ones.
+func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
+	query := s.db.Where("series_id = ? AND deleted_at IS NULL", series.ID)
+	if viewerID == nil || *viewerID != series.UserID {
+		query = query.Where("is_public = ? AND status = ?", true, "published")
+	}
+	return query
+}
+
+func (s *service) GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, []model.Post, error) {
 	var series model.Series
 	if err := s.db.Preload("User").First(&series, seriesID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -53,7 +63,7 @@ func (s *service) GetSeriesByID(seriesID uint) (*model.Series, []model.Post, err
 	}
 
 	var posts []model.Post
-	s.db.Where("series_id = ? AND deleted_at IS NULL", seriesID).
+	s.seriesPostsVisibleTo(&series, viewerID).
 		Order("series_order ASC, created_at ASC").
 		Find(&posts)
 
@@ -221,10 +231,13 @@ func (s *service) CountPostsInSeries(seriesID uint) (int64, error) {
 	return count, nil
 }
 
-func (s *service) GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error) {
+func (s *service) GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesNavResponse, error) {
 	var post model.Post
 	if err := s.db.Where("id = ? AND deleted_at IS NULL", postID).First(&post).Error; err != nil {
 		return nil, nil // 글이 없으면 nil 반환 (에러 아님)
+	}
+	if !post.VisibleTo(viewerID) {
+		return nil, nil // 볼 수 없는 글은 시리즈 소속도 드러내지 않는다
 	}
 
 	if post.SeriesID == nil {
@@ -237,8 +250,8 @@ func (s *service) GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, erro
 	}
 
 	var posts []model.Post
-	s.db.Select("id, title, series_order").
-		Where("series_id = ? AND deleted_at IS NULL", *post.SeriesID).
+	s.seriesPostsVisibleTo(&series, viewerID).
+		Select("id, title, series_order").
 		Order("series_order ASC, created_at ASC").
 		Find(&posts)
 

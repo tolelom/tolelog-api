@@ -16,7 +16,7 @@ var (
 
 type Service interface {
 	CreateComment(comment *model.Comment) error
-	GetCommentsByPostID(postID uint, limit int) ([]model.Comment, int64, error)
+	GetCommentsByPostID(postID uint, viewerID *uint, limit int) ([]model.Comment, int64, error)
 	UpdateComment(commentID uint, userID uint, content string) (*model.Comment, error)
 	DeleteComment(commentID uint, userID uint) error
 }
@@ -33,17 +33,8 @@ func NewService(db *gorm.DB) Service {
 // the parent comment if provided, then creates the comment.
 func (s *service) CreateComment(comment *model.Comment) error {
 	// Verify post exists and is not soft-deleted
-	var post model.Post
-	if err := s.db.Select("id, user_id, is_public").Where("id = ? AND deleted_at IS NULL", comment.PostID).First(&post).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrPostNotFound
-		}
+	if err := s.checkPostVisible(comment.PostID, &comment.UserID); err != nil {
 		return err
-	}
-
-	// Only allow comments on public posts or by the post author
-	if !post.IsPublic && comment.UserID != post.UserID {
-		return ErrUnauthorized
 	}
 
 	// Validate parent comment if this is a reply
@@ -69,8 +60,29 @@ func (s *service) CreateComment(comment *model.Comment) error {
 	return nil
 }
 
+// checkPostVisible returns ErrPostNotFound for missing/deleted posts and
+// ErrUnauthorized when the viewer may not see the post.
+func (s *service) checkPostVisible(postID uint, viewerID *uint) error {
+	var post model.Post
+	if err := s.db.Select("id, user_id, is_public, status").First(&post, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrPostNotFound
+		}
+		return err
+	}
+	if !post.VisibleTo(viewerID) {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
 // GetCommentsByPostID returns comments for a post ordered by creation time, up to the given limit.
-func (s *service) GetCommentsByPostID(postID uint, limit int) ([]model.Comment, int64, error) {
+// Comments of a post the viewer cannot see are not returned.
+func (s *service) GetCommentsByPostID(postID uint, viewerID *uint, limit int) ([]model.Comment, int64, error) {
+	if err := s.checkPostVisible(postID, viewerID); err != nil {
+		return nil, 0, err
+	}
+
 	var comments []model.Comment
 	var total int64
 

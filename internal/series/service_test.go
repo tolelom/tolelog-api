@@ -30,7 +30,7 @@ func (m *mockService) CreateSeries(series *model.Series) error {
 	return nil
 }
 
-func (m *mockService) GetSeriesByID(seriesID uint) (*model.Series, []model.Post, error) {
+func (m *mockService) GetSeriesByID(seriesID uint, _ *uint) (*model.Series, []model.Post, error) {
 	if m.getSeriesByIDFn != nil {
 		return m.getSeriesByIDFn(seriesID)
 	}
@@ -79,7 +79,7 @@ func (m *mockService) ReorderPosts(seriesID uint, postIDs []uint, userID uint) e
 	return nil
 }
 
-func (m *mockService) GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error) {
+func (m *mockService) GetSeriesNavigation(postID uint, _ *uint) (*dto.SeriesNavResponse, error) {
 	if m.getSeriesNavigationFn != nil {
 		return m.getSeriesNavigationFn(postID)
 	}
@@ -149,7 +149,7 @@ func TestGetSeriesByID_Success(t *testing.T) {
 			return &model.Series{ID: seriesID, Title: "Go"}, []model.Post{{ID: 1}, {ID: 2}}, nil
 		},
 	}
-	s, posts, err := ms.GetSeriesByID(1)
+	s, posts, err := ms.GetSeriesByID(1, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestGetSeriesByID_NotFound(t *testing.T) {
 			return nil, nil, ErrSeriesNotFound
 		},
 	}
-	_, _, err := ms.GetSeriesByID(999)
+	_, _, err := ms.GetSeriesByID(999, nil)
 	if !errors.Is(err, ErrSeriesNotFound) {
 		t.Errorf("expected ErrSeriesNotFound, got %v", err)
 	}
@@ -397,7 +397,7 @@ func TestGetSeriesNavigation_NilForNoSeries(t *testing.T) {
 			return nil, nil
 		},
 	}
-	nav, err := ms.GetSeriesNavigation(1)
+	nav, err := ms.GetSeriesNavigation(1, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -419,7 +419,7 @@ func TestGetSeriesNavigation_WithPrevNext(t *testing.T) {
 			}, nil
 		},
 	}
-	nav, err := ms.GetSeriesNavigation(2)
+	nav, err := ms.GetSeriesNavigation(2, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

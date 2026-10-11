@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/validate"
 
@@ -79,7 +80,7 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
 	}
 
-	series, posts, err := h.service.GetSeriesByID(uint(seriesID))
+	series, posts, err := h.service.GetSeriesByID(uint(seriesID), httputil.OptionalUserID(c))
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
@@ -391,7 +392,7 @@ func (h *Handler) GetSeriesNavigation(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
 	}
 
-	nav, err := h.service.GetSeriesNavigation(uint(postID))
+	nav, err := h.service.GetSeriesNavigation(uint(postID), httputil.OptionalUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 네비게이션 조회에 실패했습니다"))
 	}
