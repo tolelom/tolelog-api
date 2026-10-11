@@ -99,6 +99,14 @@ func (s *service) CreatePost(post *model.Post) error {
 	return nil
 }
 
+// canView - 공개된 발행 글은 누구나, 그 외(비공개·draft)는 작성자만 볼 수 있다. 목록 쿼리와 같은 기준.
+func canView(post *model.Post, userID *uint) bool {
+	if userID != nil && *userID == post.UserID {
+		return true
+	}
+	return post.IsPublic && post.Status == "published"
+}
+
 // GetPostByID - ID로 글 조회
 func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	// Try cache for public posts (when no specific user context needed for cache key)
@@ -107,7 +115,7 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 		cacheKey := fmt.Sprintf(cachePost, postID)
 		if err := s.cache.Get(cacheKey, &post); err == nil {
 			// Cache hit — still enforce access control
-			if !post.IsPublic && (userID == nil || *userID != post.UserID) {
+			if !canView(&post, userID) {
 				return nil, ErrUnauthorized
 			}
 			// Increment view count in DB (non-blocking for cached reads)
@@ -131,7 +139,7 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 		return nil, err
 	}
 
-	if !post.IsPublic && (userID == nil || *userID != post.UserID) {
+	if !canView(&post, userID) {
 		return nil, ErrUnauthorized
 	}
 

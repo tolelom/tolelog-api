@@ -12,7 +12,7 @@ type Post struct {
 	Content   string         `gorm:"type:longtext;not null"`
 	UserID    uint           `gorm:"not null;index;index:idx_user_public,priority:1"`
 	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
-	IsPublic  bool           `gorm:"default:true;index;index:idx_user_public,priority:2"`
+	IsPublic  bool           `gorm:"index;index:idx_user_public,priority:2"`
 	Status    string         `gorm:"size:20;default:'published';index"`
 	TagsRaw   string         `gorm:"column:tags;size:500;default:''"`
 	Tags        []Tag          `gorm:"many2many:post_tags;" json:"-"`
