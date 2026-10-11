@@ -22,7 +22,7 @@ type CreatePostRequest struct {
 	Content  string `json:"content" validate:"required,min=1,max=500000"`
 	IsPublic bool   `json:"is_public"`
 	Tags     string `json:"tags" validate:"max=500"`
-	Status   string `json:"status"`
+	Status   string `json:"status" validate:"omitempty,oneof=draft published"`
 }
 
 type UpdatePostRequest struct {
@@ -30,7 +30,7 @@ type UpdatePostRequest struct {
 	Content  *string `json:"content" validate:"omitempty,min=1,max=500000"`
 	IsPublic *bool   `json:"is_public"`
 	Tags     *string `json:"tags" validate:"omitempty,max=500"`
-	Status   *string `json:"status"`
+	Status   *string `json:"status" validate:"omitempty,oneof=draft published"`
 }
 
 type PostResponse struct {
