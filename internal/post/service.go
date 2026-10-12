@@ -73,7 +73,7 @@ func (s *service) syncTags(db *gorm.DB, post *model.Post, tagsStr string) error 
 // CreatePost - 새 글 생성
 func (s *service) CreatePost(post *model.Post) error {
 	if post.Status == "" {
-		post.Status = "published"
+		post.Status = model.PostStatusPublished
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -104,7 +104,7 @@ func canView(post *model.Post, userID *uint) bool {
 	if userID != nil && *userID == post.UserID {
 		return true
 	}
-	return post.IsPublic && post.Status == "published"
+	return post.IsPublic && post.Status == model.PostStatusPublished
 }
 
 // GetPostByID - ID로 글 조회

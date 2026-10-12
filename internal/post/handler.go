@@ -47,7 +47,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
-		Status:   req.Status,
+		Status:   model.PostStatus(req.Status),
 		TagsRaw:  req.Tags,
 	}
 

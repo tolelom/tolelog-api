@@ -1,0 +1,112 @@
+version: 0.4
+go_module: tolelom_api
+
+executables:
+  server: { composes: [router, config, middleware, utils] }
+
+tiers: [base, infra, domain, edge, app]
+
+modules:
+  model:      { tier: base, role: data, path: internal/model }
+  utils:      { tier: base, path: internal/utils, depends_on: [model] }
+  validate:   { tier: base, path: internal/validate }
+  dto:        { tier: base, role: data, path: internal/dto, depends_on: [model, utils] }
+  docs:       { tier: base, path: docs, summary: "swaggo가 코드 주석에서 생성하는 API 문서" }
+  cache:      { tier: infra, role: infra, path: internal/cache }
+  upload:     { tier: infra, role: infra, path: internal/upload }
+  config:     { tier: infra, path: internal/config, depends_on: [model] }
+  httputil:   { tier: infra, path: internal/httputil, depends_on: [dto, validate] }
+  post:       { tier: domain, path: internal/post, depends_on: [cache, dto, httputil, model] }
+  comment:    { tier: domain, path: internal/comment, depends_on: [dto, httputil, model] }
+  series:     { tier: domain, path: internal/series, depends_on: [dto, model, validate] }
+  tag:        { tier: domain, path: internal/tag, depends_on: [dto] }
+  sitemap:    { tier: domain, path: internal/sitemap, depends_on: [model, utils] }
+  user:       { tier: domain, path: internal/user, depends_on: [dto, model, upload, utils, validate] }
+  image:      { tier: domain, path: internal/image, depends_on: [dto, upload] }
+  feed:       { tier: edge, path: internal/feed, depends_on: [post, utils] }
+  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, utils] }
+  router:
+    tier: app
+    path: internal/router
+    depends_on: [cache, comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, user]
+
+enums:
+  post_status:
+    in: model
+    summary: "글 상태. draft는 작성자만 본다"
+    go: { type: PostStatus, prefix: PostStatus }
+    values: [draft, published]
+
+# 코드에 손으로 쓴 sentinel 에러. comment·series에 같은 이름(ErrUnauthorized, ErrPostNotFound)이
+# 따로 있지만 에러 ID는 설계 전체에서 하나라 post 쪽만 적는다.
+errors:
+  ErrPostNotFound:         { gen: false, in: post, message: "post not found" }
+  ErrUnauthorized:         { gen: false, in: post, message: "unauthorized" }
+  ErrNoFieldsToUpdate:     { gen: false, in: post, message: "no fields to update" }
+  ErrInvalidTag:           { gen: false, in: post, message: "invalid tag parameter" }
+  ErrInvalidSearchQuery:   { gen: false, in: post, message: "invalid search query" }
+  ErrCommentNotFound:      { gen: false, in: comment, message: "comment not found" }
+  ErrParentNotFound:       { gen: false, in: comment, message: "parent comment not found" }
+  ErrSeriesNotFound:       { gen: false, in: series, message: "series not found" }
+  ErrPostNotOwned:         { gen: false, in: series, message: "post not owned by user" }
+  ErrUserAlreadyExists:    { gen: false, in: user, message: "user already exists" }
+  ErrInvalidCredentials:   { gen: false, in: user, message: "invalid credentials" }
+  ErrUserNotFound:         { gen: false, in: user, message: "user not found" }
+  ErrInvalidPassword:      { gen: false, in: user, message: "invalid current password" }
+  ErrSamePassword:         { gen: false, in: user, message: "new password is the same as current" }
+  ErrInvalidRefreshToken:  { gen: false, in: user, message: "invalid refresh token" }
+  ErrResponseSent:         { gen: false, in: httputil, message: "response already sent" }
+  ErrInvalidToken:         { gen: false, in: utils, message: "invalid token" }
+  ErrExpiredToken:         { gen: false, in: utils, message: "token has expired" }
+  ErrTokenNotYetValid:     { gen: false, in: utils, message: "token not yet valid" }
+  ErrInvalidSigningMethod: { gen: false, in: utils, message: "unexpected signing method" }
+  ErrMissingClaims:        { gen: false, in: utils, message: "missing required claims" }
+  ErrInvalidTokenType:     { gen: false, in: utils, message: "invalid token type" }
+
+# model의 GORM 엔티티. ID, 생성·수정·삭제 시각 같은 GORM 관리 필드는 적지 않는다.
+types:
+  user:
+    gen: false
+    in: model
+    fields: { username: string, password_hash: string, avatar_url: string, last_login: time, token_version: int }
+  tag:
+    gen: false
+    in: model
+    fields: { name: string }
+  series:
+    gen: false
+    in: model
+    fields:
+      title:       string
+      description: string
+      user:        { ref: user }
+      posts:       { ref: post, many: true }
+  post:
+    gen: false
+    in: model
+    fields:
+      title:        string
+      content:      string
+      user:         { ref: user }
+      is_public:    bool
+      status:       post_status
+      tags_raw:     string
+      tags:         { ref: tag, many: true }
+      series:       { ref: series, optional: true }
+      series_order: { type: int, optional: true }
+      view_count:   uint
+      like_count:   uint
+  comment:
+    gen: false
+    in: model
+    fields:
+      post_id:   uint
+      user:      { ref: user }
+      parent_id: { type: uint, optional: true }
+      content:   string
+      is_edited: bool
+      replies:   { ref: comment, many: true }
+  post_like:
+    gen: false
+    in: model
+    fields: { post_id: uint, user_id: uint }

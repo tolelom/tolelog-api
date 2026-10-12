@@ -37,7 +37,7 @@ func MakeUser(t *testing.T, db *gorm.DB, username string) *model.User {
 // postConfig collects desired post field values, including explicit bool overrides.
 type postConfig struct {
 	forcePrivate bool
-	status       string
+	status       model.PostStatus
 	title        string
 }
 
@@ -50,7 +50,7 @@ func WithPrivate() PostOpt {
 }
 
 // WithStatus sets the post status (e.g. "draft").
-func WithStatus(status string) PostOpt {
+func WithStatus(status model.PostStatus) PostOpt {
 	return func(c *postConfig) { c.status = status }
 }
 
@@ -67,7 +67,7 @@ func MakePost(t *testing.T, db *gorm.DB, userID uint, opts ...PostOpt) *model.Po
 	t.Helper()
 
 	cfg := &postConfig{
-		status: "published",
+		status: model.PostStatusPublished,
 		title:  "테스트 글",
 	}
 	for _, opt := range opts {
