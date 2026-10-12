@@ -1,4 +1,4 @@
-version: 0.4
+version: 0.5
 go_module: tolelom_api
 
 executables:
@@ -38,7 +38,7 @@ enums:
     values: [draft, published]
 
 # 코드에 손으로 쓴 sentinel 에러. comment·series에 같은 이름(ErrUnauthorized, ErrPostNotFound)이
-# 따로 있지만 에러 ID는 설계 전체에서 하나라 post 쪽만 적는다.
+# 따로 있어 그쪽은 ID를 따로 두고 go.name으로 Go 이름을 적는다.
 errors:
   ErrPostNotFound:         { gen: false, in: post, message: "post not found" }
   ErrUnauthorized:         { gen: false, in: post, message: "unauthorized" }
@@ -47,8 +47,12 @@ errors:
   ErrInvalidSearchQuery:   { gen: false, in: post, message: "invalid search query" }
   ErrCommentNotFound:      { gen: false, in: comment, message: "comment not found" }
   ErrParentNotFound:       { gen: false, in: comment, message: "parent comment not found" }
+  comment_post_not_found:  { gen: false, in: comment, message: "post not found", go: { name: ErrPostNotFound } }
+  comment_unauthorized:    { gen: false, in: comment, message: "unauthorized", go: { name: ErrUnauthorized } }
   ErrSeriesNotFound:       { gen: false, in: series, message: "series not found" }
   ErrPostNotOwned:         { gen: false, in: series, message: "post not owned by user" }
+  series_post_not_found:   { gen: false, in: series, message: "post not found", go: { name: ErrPostNotFound } }
+  series_unauthorized:     { gen: false, in: series, message: "unauthorized", go: { name: ErrUnauthorized } }
   ErrUserAlreadyExists:    { gen: false, in: user, message: "user already exists" }
   ErrInvalidCredentials:   { gen: false, in: user, message: "invalid credentials" }
   ErrUserNotFound:         { gen: false, in: user, message: "user not found" }
@@ -63,50 +67,85 @@ errors:
   ErrMissingClaims:        { gen: false, in: utils, message: "missing required claims" }
   ErrInvalidTokenType:     { gen: false, in: utils, message: "invalid token type" }
 
-# model의 GORM 엔티티. ID, 생성·수정·삭제 시각 같은 GORM 관리 필드는 적지 않는다.
+# model의 GORM 엔티티. 필드 전부를 적고 daemok check가 코드 struct와 대조한다(태그는 보지 않는다).
+# 연관 엔티티 User는 값 필드라 ref(포인터)가 아니라 type으로 적는다.
 types:
   user:
     gen: false
     in: model
-    fields: { username: string, password_hash: string, avatar_url: string, last_login: time, token_version: int }
+    fields: { id: uint, username: string, password_hash: string, avatar_url: string, created_at: time, last_login: time, token_version: int }
   tag:
     gen: false
     in: model
-    fields: { name: string }
+    fields: { id: uint, name: string }
   series:
     gen: false
     in: model
     fields:
+      id:          uint
       title:       string
       description: string
-      user:        { ref: user }
+      user_id:     uint
+      user:        user
       posts:       { ref: post, many: true }
+      created_at:  time
+      updated_at:  time
+      deleted_at:  gorm.DeletedAt
   post:
     gen: false
     in: model
     fields:
+      id:           uint
       title:        string
       content:      string
-      user:         { ref: user }
+      user_id:      uint
+      user:         user
       is_public:    bool
       status:       post_status
       tags_raw:     string
       tags:         { ref: tag, many: true }
-      series:       { ref: series, optional: true }
+      series_id:    { type: uint, optional: true }
       series_order: { type: int, optional: true }
+      series:       { ref: series, optional: true }
       view_count:   uint
       like_count:   uint
+      created_at:   time
+      updated_at:   time
+      deleted_at:   gorm.DeletedAt
   comment:
     gen: false
     in: model
     fields:
-      post_id:   uint
-      user:      { ref: user }
-      parent_id: { type: uint, optional: true }
-      content:   string
-      is_edited: bool
-      replies:   { ref: comment, many: true }
+      id:         uint
+      post_id:    uint
+      user_id:    uint
+      parent_id:  { type: uint, optional: true }
+      content:    string
+      is_edited:  bool
+      user:       user
+      replies:    { ref: comment, many: true }
+      created_at: time
+      updated_at: time
+      deleted_at: gorm.DeletedAt
   post_like:
     gen: false
     in: model
-    fields: { post_id: uint, user_id: uint }
+    fields: { id: uint, post_id: uint, user_id: uint, created_at: time }
+
+# post 서비스 계약. daemok check가 코드 interface와 시그니처를 대조한다.
+# IsLiked는 error를 돌려주지 않아 적지 못한다(계약 메서드는 반환 끝에 error가 붙는다).
+contracts:
+  post_service:
+    gen: false
+    in: post
+    go: { name: Service }
+    methods:
+      create_post:      { params: { post: post }, errors: [] }
+      get_post_by_id:   { params: { post_id: uint, user_id: "*uint" }, returns: [post], errors: [ErrPostNotFound, ErrUnauthorized] }
+      get_public_posts: { params: { page: int, page_size: int, tag: string }, returns: ["[]post", int64], errors: [ErrInvalidTag] }
+      get_user_posts:   { params: { user_id: uint, current_user_id: "*uint", page: int, page_size: int, tag: string }, returns: ["[]post", int64], errors: [ErrInvalidTag] }
+      update_post:      { params: { post_id: uint, user_id: uint, req: "*dto.UpdatePostRequest" }, returns: [post], errors: [ErrPostNotFound, ErrUnauthorized, ErrNoFieldsToUpdate] }
+      delete_post:      { params: { post_id: uint, user_id: uint }, errors: [ErrPostNotFound, ErrUnauthorized] }
+      search_posts:     { params: { query: string, page: int, page_size: int }, returns: ["[]post", int64], errors: [] }
+      toggle_like:      { params: { post_id: uint, user_id: uint }, returns: [bool, uint], errors: [] }
+      get_drafts:       { params: { user_id: uint }, returns: ["[]post"], errors: [] }
