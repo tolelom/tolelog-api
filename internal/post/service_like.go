@@ -59,8 +59,10 @@ func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
 }
 
 // IsLiked checks if a user has liked a post.
-func (s *service) IsLiked(postID uint, userID uint) bool {
+func (s *service) IsLiked(postID uint, userID uint) (bool, error) {
 	var count int64
-	s.db.Model(&model.PostLike{}).Where("post_id = ? AND user_id = ?", postID, userID).Count(&count)
-	return count > 0
+	if err := s.db.Model(&model.PostLike{}).Where("post_id = ? AND user_id = ?", postID, userID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

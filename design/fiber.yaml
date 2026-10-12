@@ -133,7 +133,6 @@ types:
     fields: { id: uint, post_id: uint, user_id: uint, created_at: time }
 
 # post 서비스 계약. daemok check가 코드 interface와 시그니처를 대조한다.
-# IsLiked는 error를 돌려주지 않아 적지 못한다(계약 메서드는 반환 끝에 error가 붙는다).
 contracts:
   post_service:
     gen: false
@@ -148,4 +147,5 @@ contracts:
       delete_post:      { params: { post_id: uint, user_id: uint }, errors: [ErrPostNotFound, ErrUnauthorized] }
       search_posts:     { params: { query: string, page: int, page_size: int }, returns: ["[]post", int64], errors: [] }
       toggle_like:      { params: { post_id: uint, user_id: uint }, returns: [bool, uint], errors: [] }
+      is_liked:         { params: { post_id: uint, user_id: uint }, returns: [bool], errors: [] }
       get_drafts:       { params: { user_id: uint }, returns: ["[]post"], errors: [] }

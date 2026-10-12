@@ -41,8 +41,8 @@ func (m *mockPostService) SearchPosts(query string, page, pageSize int) ([]model
 func (m *mockPostService) ToggleLike(postID uint, userID uint) (bool, uint, error) {
 	return false, 0, nil
 }
-func (m *mockPostService) IsLiked(postID uint, userID uint) bool  { return false }
-func (m *mockPostService) GetDrafts(userID uint) ([]model.Post, error) { return nil, nil }
+func (m *mockPostService) IsLiked(postID uint, userID uint) (bool, error) { return false, nil }
+func (m *mockPostService) GetDrafts(userID uint) ([]model.Post, error)    { return nil, nil }
 
 var _ post.Service = (*mockPostService)(nil)
 

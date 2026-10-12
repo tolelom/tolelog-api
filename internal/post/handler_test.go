@@ -24,7 +24,7 @@ type mockService struct {
 	deletePostFn     func(postID uint, userID uint) error
 	searchPostsFn    func(query string, page, pageSize int) ([]model.Post, int64, error)
 	toggleLikeFn     func(postID uint, userID uint) (bool, uint, error)
-	isLikedFn        func(postID uint, userID uint) bool
+	isLikedFn        func(postID uint, userID uint) (bool, error)
 	getDraftsFn      func(userID uint) ([]model.Post, error)
 }
 
@@ -84,11 +84,11 @@ func (m *mockService) ToggleLike(postID uint, userID uint) (bool, uint, error) {
 	return false, 0, nil
 }
 
-func (m *mockService) IsLiked(postID uint, userID uint) bool {
+func (m *mockService) IsLiked(postID uint, userID uint) (bool, error) {
 	if m.isLikedFn != nil {
 		return m.isLikedFn(postID, userID)
 	}
-	return false
+	return false, nil
 }
 
 func (m *mockService) GetDrafts(userID uint) ([]model.Post, error) {
@@ -626,8 +626,8 @@ func TestToggleLike_InvalidID(t *testing.T) {
 
 func TestGetLikeStatus_Success(t *testing.T) {
 	ms := &mockService{
-		isLikedFn: func(postID uint, userID uint) bool {
-			return true
+		isLikedFn: func(postID uint, userID uint) (bool, error) {
+			return true, nil
 		},
 	}
 	app := setupAuthPostApp(ms, 1)
@@ -648,6 +648,24 @@ func TestGetLikeStatus_Success(t *testing.T) {
 	}
 	if result.Status != "success" {
 		t.Errorf("expected status 'success', got %q", result.Status)
+	}
+}
+
+func TestGetLikeStatus_ServiceError(t *testing.T) {
+	ms := &mockService{
+		isLikedFn: func(postID uint, userID uint) (bool, error) {
+			return false, errors.New("db down")
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/1/like", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("expected status 500, got %d", resp.StatusCode)
 	}
 }
 
