@@ -144,6 +144,8 @@ func (s *service) DeleteSeries(seriesID uint, userID uint) error {
 	})
 }
 
+// AddPostToSeries 는 order 가 0 이하면 순서를 정한다. 이미 같은 시리즈에 있는 글은 지금 자리를 지키고,
+// 새로 들어오는 글은 맨 뒤에 붙는다(에디터는 저장할 때마다 order 0 으로 부른다).
 func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID uint) error {
 	var series model.Series
 	if err := s.db.First(&series, seriesID).Error; err != nil {
@@ -165,6 +167,20 @@ func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID 
 	}
 	if post.UserID != userID {
 		return ErrPostNotOwned
+	}
+
+	if order <= 0 {
+		if post.SeriesID != nil && *post.SeriesID == seriesID && post.SeriesOrder != nil {
+			order = *post.SeriesOrder
+		} else {
+			var maxOrder int
+			if err := s.db.Model(&model.Post{}).
+				Where("series_id = ? AND deleted_at IS NULL", seriesID).
+				Select("COALESCE(MAX(series_order), 0)").Scan(&maxOrder).Error; err != nil {
+				return err
+			}
+			order = maxOrder + 1
+		}
 	}
 
 	post.SeriesID = &seriesID
