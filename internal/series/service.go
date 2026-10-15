@@ -48,7 +48,7 @@ func (s *service) CreateSeries(series *model.Series) error {
 func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
 	query := s.db.Where("series_id = ? AND deleted_at IS NULL", series.ID)
 	if viewerID == nil || *viewerID != series.UserID {
-		query = query.Where("is_public = ? AND status = ?", true, "published")
+		query = query.Where("is_public = ? AND status = ?", true, model.PostStatusPublished)
 	}
 	return query
 }

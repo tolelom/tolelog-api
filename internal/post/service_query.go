@@ -55,7 +55,7 @@ func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, 
 	var posts []model.Post
 	var total int64
 
-	query := s.db.Where("is_public = ? AND status = ?", true, "published")
+	query := s.db.Where("is_public = ? AND status = ?", true, model.PostStatusPublished)
 	if tag != "" {
 		sanitized, err := SanitizeTag(tag)
 		if err != nil {
@@ -102,7 +102,7 @@ func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize 
 	query := s.db.Model(&model.Post{}).Where("user_id = ?", userID)
 
 	if currentUserID == nil || *currentUserID != userID {
-		query = query.Where("is_public = ? AND status = ?", true, "published")
+		query = query.Where("is_public = ? AND status = ?", true, model.PostStatusPublished)
 	}
 	if tag != "" {
 		sanitized, err := SanitizeTag(tag)
@@ -148,7 +148,7 @@ func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, i
 	var total int64
 
 	likeQuery := "%" + escapeLike(query) + "%"
-	q := s.db.Where("is_public = ? AND status = ? AND (title LIKE ? OR content LIKE ?)", true, "published", likeQuery, likeQuery)
+	q := s.db.Where("is_public = ? AND status = ? AND (title LIKE ? OR content LIKE ?)", true, model.PostStatusPublished, likeQuery, likeQuery)
 
 	if err := q.Model(&model.Post{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -169,7 +169,7 @@ func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, i
 // GetDrafts returns all draft posts for a user.
 func (s *service) GetDrafts(userID uint) ([]model.Post, error) {
 	var posts []model.Post
-	if err := s.db.Where("user_id = ? AND status = ?", userID, "draft").
+	if err := s.db.Where("user_id = ? AND status = ?", userID, model.PostStatusDraft).
 		Preload("User").Preload("Tags").
 		Order("updated_at DESC").
 		Find(&posts).Error; err != nil {

@@ -13,7 +13,7 @@ type Post struct {
 	UserID    uint           `gorm:"not null;index;index:idx_user_public,priority:1"`
 	User      User           `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
 	IsPublic  bool           `gorm:"index;index:idx_user_public,priority:2"`
-	Status    string         `gorm:"size:20;default:'published';index"`
+	Status    PostStatus     `gorm:"size:20;default:'published';index"`
 	TagsRaw   string         `gorm:"column:tags;size:500;default:''"`
 	Tags        []Tag          `gorm:"many2many:post_tags;" json:"-"`
 	SeriesID    *uint          `gorm:"index"`
@@ -31,5 +31,5 @@ func (p *Post) VisibleTo(userID *uint) bool {
 	if userID != nil && *userID == p.UserID {
 		return true
 	}
-	return p.IsPublic && p.Status == "published"
+	return p.IsPublic && p.Status == PostStatusPublished
 }

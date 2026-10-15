@@ -47,7 +47,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 		Content:  req.Content,
 		UserID:   userID,
 		IsPublic: req.IsPublic,
-		Status:   req.Status,
+		Status:   model.PostStatus(req.Status),
 		TagsRaw:  req.Tags,
 	}
 
@@ -373,7 +373,10 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 
 	liked := false
 	if userID, ok := c.Locals("userID").(uint); ok {
-		liked = h.service.IsLiked(uint(postID), userID)
+		liked, err = h.service.IsLiked(uint(postID), userID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "좋아요 상태 조회에 실패했습니다"))
+		}
 	}
 
 	return c.JSON(dto.SuccessResponse{

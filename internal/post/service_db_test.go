@@ -215,8 +215,8 @@ func TestToggleLike_TogglesAndCounts(t *testing.T) {
 	if !liked || count != 1 {
 		t.Fatalf("1차: liked=%v count=%d, want true/1", liked, count)
 	}
-	if !svc.IsLiked(post.ID, fan.ID) {
-		t.Fatal("IsLiked가 false — 좋아요 기록 안 됨")
+	if liked, err := svc.IsLiked(post.ID, fan.ID); err != nil || !liked {
+		t.Fatalf("IsLiked가 false — 좋아요 기록 안 됨 (err=%v)", err)
 	}
 
 	// 2차 토글: 취소
@@ -227,8 +227,8 @@ func TestToggleLike_TogglesAndCounts(t *testing.T) {
 	if liked || count != 0 {
 		t.Fatalf("2차: liked=%v count=%d, want false/0", liked, count)
 	}
-	if svc.IsLiked(post.ID, fan.ID) {
-		t.Fatal("IsLiked가 true — 취소 반영 안 됨")
+	if liked, err := svc.IsLiked(post.ID, fan.ID); err != nil || liked {
+		t.Fatalf("IsLiked가 true — 취소 반영 안 됨 (err=%v)", err)
 	}
 
 	// 다른 유저의 좋아요는 독립적
@@ -239,5 +239,20 @@ func TestToggleLike_TogglesAndCounts(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("count=%d, want 1", count)
+	}
+}
+
+// IsLiked는 조회 실패를 false로 삼키지 않고 오류로 돌려준다.
+func TestIsLiked_DBError(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.Close()
+
+	if _, err := svc.IsLiked(1, 1); err == nil {
+		t.Fatal("닫힌 DB에서 IsLiked가 오류를 내지 않았다")
 	}
 }

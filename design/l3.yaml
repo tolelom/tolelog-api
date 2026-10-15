@@ -1,0 +1,53 @@
+# daemok init --l3로 옮긴 손으로 쓴 선언이다(gen: false).
+
+types:
+  config: { in: config, gen: false, fields: { db_host: string, db_port: string, db_user: string, db_password: string, db_name: string, jwt_secret: string, port: string, environment: string, redis_addr: string, upload_dir: string, db: "*gorm.DB" } }
+  add_post_to_series_request: { in: dto, gen: false, fields: { post_id: uint, order: int } }
+  auth_data_response: { in: dto, gen: false, fields: { access_token: string, refresh_token: string, username: string, user_id: uint, avatar_url: string } }
+  auth_response: { in: dto, gen: false, fields: { user: user_response, access_token: string, refresh_token: string } }
+  change_password_request: { in: dto, gen: false, fields: { current_password: string, new_password: string } }
+  comment_list_response: { in: dto, gen: false, fields: { comments: "[]comment_response", total: int64 } }
+  comment_response: { in: dto, gen: false, fields: { id: uint, post_id: uint, user_id: uint, parent_id: "*uint", author: string, avatar_url: string, content: string, is_edited: bool, created_at: time, updated_at: time, replies: "[]comment_response" } }
+  create_comment_request: { in: dto, gen: false, fields: { content: string, parent_id: "*uint" } }
+  create_post_request: { in: dto, gen: false, fields: { title: string, content: string, is_public: bool, tags: string, status: string } }
+  create_series_request: { in: dto, gen: false, fields: { title: string, description: string } }
+  error_response: { in: dto, gen: false, fields: { status: string, error: string, message: string } }
+  login_request: { in: dto, gen: false, fields: { username: string, password: string } }
+  pagination: { in: dto, gen: false, fields: { page: int, page_size: int, total: int64, total_pages: int64 } }
+  post_list_response: { in: dto, gen: false, fields: { id: uint, title: string, excerpt: string, user_id: uint, author: string, is_public: bool, status: string, tags: string, series: { type: series_info, optional: true }, view_count: uint, like_count: uint, created_at: time, updated_at: time } }
+  post_list_with_pagination: { in: dto, gen: false, fields: { posts: "[]post_list_response", pagination: pagination } }
+  post_response: { in: dto, gen: false, fields: { id: uint, title: string, content: string, user_id: uint, author: string, is_public: bool, status: string, tags: string, series: { type: series_info, optional: true }, view_count: uint, like_count: uint, created_at: time, updated_at: time } }
+  refresh_token_request: { in: dto, gen: false, fields: { refresh_token: string } }
+  register_request: { in: dto, gen: false, fields: { username: string, password: string } }
+  reorder_posts_request: { in: dto, gen: false, fields: { post_ids: "[]uint" } }
+  series_detail_response: { in: dto, gen: false, fields: { id: uint, title: string, description: string, user_id: uint, author: string, posts: "[]series_post_item", created_at: time, updated_at: time } }
+  series_info: { in: dto, gen: false, fields: { series_id: uint, series_title: string, series_order: int } }
+  series_nav_post: { in: dto, gen: false, fields: { id: uint, title: string } }
+  series_nav_response: { in: dto, gen: false, fields: { series_id: uint, series_title: string, current_order: int, total_posts: int, prev_post: "*series_nav_post", next_post: "*series_nav_post" } }
+  series_post_item: { in: dto, gen: false, fields: { id: uint, title: string, order: int, created_at: time } }
+  series_response: { in: dto, gen: false, fields: { id: uint, title: string, description: string, user_id: uint, author: string, post_count: int, created_at: time, updated_at: time } }
+  success_response: { in: dto, gen: false, fields: { status: string, data: any } }
+  tag_list_response: { in: dto, gen: false, fields: { tags: "[]tag_response", total: int64 } }
+  tag_response: { in: dto, gen: false, fields: { name: string, post_count: int64 } }
+  update_comment_request: { in: dto, gen: false, fields: { content: string } }
+  update_post_request: { in: dto, gen: false, fields: { title: "*string", content: "*string", is_public: "*bool", tags: "*string", status: "*string" } }
+  update_series_request: { in: dto, gen: false, fields: { title: "*string", description: "*string" } }
+  user_response: { in: dto, gen: false, fields: { id: uint, username: string, avatar_url: string, created_at: time, last_login: time } }
+  health_response: { in: router, gen: false, fields: { status: string, message: string } }
+  readiness_response: { in: router, gen: false, fields: { status: string, database: string, redis: string } }
+  entry: { in: sitemap, gen: false, summary: "Entry holds minimal data for sitemap generation.", fields: { id: uint, title: string, updated_at: time } }
+
+contracts:
+  comment_service: { in: comment, gen: false, kind: call, methods: { create_comment: { params: { comment: "*comment" }, errors: [] }, get_comments_by_post_id: { params: { post_id: uint, limit: int }, returns: ["[]comment", int64], errors: [] }, update_comment: { params: { comment_id: uint, user_id: uint, content: string }, returns: ["*comment"], errors: [] }, delete_comment: { params: { comment_id: uint, user_id: uint }, errors: [] } }, go: { name: Service } }
+  series_service: { in: series, gen: false, kind: call, methods: { create_series: { params: { series: "*series" }, errors: [] }, get_series_by_id: { params: { series_id: uint }, returns: ["*series", "[]post"], errors: [] }, get_series_by_user_id: { params: { user_id: uint }, returns: ["[]series", "map[uint]int64"], errors: [] }, update_series: { params: { series_id: uint, user_id: uint, req: "*update_series_request" }, returns: ["*series"], errors: [] }, delete_series: { params: { series_id: uint, user_id: uint }, errors: [] }, add_post_to_series: { params: { series_id: uint, post_id: uint, order: int, user_id: uint }, errors: [] }, remove_post_from_series: { params: { series_id: uint, post_id: uint, user_id: uint }, errors: [] }, reorder_posts: { params: { series_id: uint, post_ids: "[]uint", user_id: uint }, errors: [] }, get_series_navigation: { params: { post_id: uint }, returns: ["*series_nav_response"], errors: [] }, count_posts_in_series: { params: { series_id: uint }, returns: [int64], errors: [] } }, go: { name: Service } }
+  repository: { in: sitemap, gen: false, summary: "Repository abstracts DB access for sitemap generation.", kind: call, methods: { get_public_post_entries: { returns: ["[]entry"], errors: [] }, get_series_entries: { returns: ["[]entry"], errors: [] } } }
+  tag_service: { in: tag, gen: false, kind: call, methods: { get_tags: { params: { sort: string, limit: int }, returns: ["*tag_list_response"], errors: [] } }, go: { name: Service } }
+  auth_service: { in: user, gen: false, kind: call, methods: { register_user: { params: { req: "*register_request" }, returns: ["*auth_response"], errors: [] }, authenticate_user: { params: { req: "*login_request" }, returns: ["*auth_response"], errors: [] }, get_user_by_id: { params: { user_id: uint }, returns: ["*user"], errors: [] }, update_avatar: { params: { user_id: uint, avatar_url: string }, errors: [] }, refresh_tokens: { params: { refresh_token: string }, returns: ["*auth_response"], errors: [] }, change_password: { params: { user_id: uint, req: "*change_password_request" }, errors: [] }, logout: { params: { user_id: uint }, errors: [] }, delete_user: { params: { user_id: uint }, errors: [] } } }
+
+funcs:
+  bind_and_validate: { in: httputil, gen: false, summary: "BindAndValidate parses the request body into T and validates it.", errors: [ErrResponseSent] }
+  require_auth: { in: httputil, gen: false, summary: "RequireAuth extracts the authenticated userID from Fiber locals.", errors: [ErrResponseSent] }
+  sanitize_search_query: { in: post, gen: false, summary: "SanitizeSearchQuery validates and sanitizes a search query parameter.", errors: [ErrInvalidSearchQuery] }
+  sanitize_tag: { in: post, gen: false, summary: "SanitizeTag validates and sanitizes a tag parameter.", errors: [ErrInvalidTag] }
+  validate_access_token: { in: utils, gen: false, summary: "ValidateAccessToken validates a JWT token and only accepts access tokens", errors: [ErrInvalidTokenType] }
+  validate_refresh_token: { in: utils, gen: false, summary: "ValidateRefreshToken validates a JWT token and only accepts refresh tokens", errors: [ErrInvalidTokenType] }

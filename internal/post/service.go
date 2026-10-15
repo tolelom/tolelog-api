@@ -29,7 +29,7 @@ type Service interface {
 	DeletePost(postID uint, userID uint) error
 	SearchPosts(query string, page, pageSize int) ([]model.Post, int64, error)
 	ToggleLike(postID uint, userID uint) (liked bool, likeCount uint, err error)
-	IsLiked(postID uint, userID uint) bool
+	IsLiked(postID uint, userID uint) (bool, error)
 	GetDrafts(userID uint) ([]model.Post, error)
 }
 
@@ -73,7 +73,7 @@ func (s *service) syncTags(db *gorm.DB, post *model.Post, tagsStr string) error 
 // CreatePost - 새 글 생성
 func (s *service) CreatePost(post *model.Post) error {
 	if post.Status == "" {
-		post.Status = "published"
+		post.Status = model.PostStatusPublished
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
