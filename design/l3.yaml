@@ -1,7 +1,7 @@
 # daemok init --l3로 옮긴 손으로 쓴 선언이다(gen: false).
 
 types:
-  config: { in: config, gen: false, fields: { db_host: string, db_port: string, db_user: string, db_password: string, db_name: string, jwt_secret: string, port: string, environment: string, redis_addr: string, upload_dir: string, db: "*gorm.DB" } }
+  config: { in: config, gen: false, fields: { db_host: string, db_port: string, db_user: string, db_password: string, db_name: string, jwt_secret: string, port: string, environment: string, upload_dir: string, db: "*gorm.DB" } }
   add_post_to_series_request: { in: dto, gen: false, fields: { post_id: uint, order: int } }
   auth_data_response: { in: dto, gen: false, fields: { access_token: string, refresh_token: string, username: string, user_id: uint, avatar_url: string } }
   auth_response: { in: dto, gen: false, fields: { user: user_response, access_token: string, refresh_token: string } }
@@ -34,7 +34,7 @@ types:
   update_series_request: { in: dto, gen: false, fields: { title: "*string", description: "*string" } }
   user_response: { in: dto, gen: false, fields: { id: uint, username: string, avatar_url: string, created_at: time, last_login: time } }
   health_response: { in: router, gen: false, fields: { status: string, message: string } }
-  readiness_response: { in: router, gen: false, fields: { status: string, database: string, redis: string } }
+  readiness_response: { in: router, gen: false, fields: { status: string, database: string } }
   entry: { in: sitemap, gen: false, summary: "Entry holds minimal data for sitemap generation.", fields: { id: uint, title: string, updated_at: time } }
 
 contracts:

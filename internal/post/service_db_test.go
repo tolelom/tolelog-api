@@ -19,7 +19,7 @@ import (
 // GetPostByID 호출은 view_count를 +1 한다 — 이 테스트는 count를 단언하지 않는다.
 func TestGetPostByID_PrivatePostAccessControl(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil) // Redis nil — 서비스가 nil 가드 보유
+	svc := NewService(db)
 
 	owner := testutil.MakeUser(t, db, "owner")
 	other := testutil.MakeUser(t, db, "other")
@@ -67,7 +67,7 @@ func strPtr(s string) *string { return &s }
 // 서브테스트는 순차 시나리오 (차단 → 수정) — 단독 실행 불가.
 func TestUpdatePost_OwnershipEnforced(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 
 	owner := testutil.MakeUser(t, db, "owner")
 	attacker := testutil.MakeUser(t, db, "attacker")
@@ -103,7 +103,7 @@ func TestUpdatePost_OwnershipEnforced(t *testing.T) {
 // 서브테스트는 순차 시나리오 (차단 → 삭제 → 재삭제) — 단독 실행 불가.
 func TestDeletePost_OwnershipEnforced(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 
 	owner := testutil.MakeUser(t, db, "owner")
 	attacker := testutil.MakeUser(t, db, "attacker")
@@ -140,7 +140,7 @@ func TestDeletePost_OwnershipEnforced(t *testing.T) {
 // 경로 5: 타인 프로필 조회 시 is_public=true && published 만, 본인은 전부
 func TestGetUserPosts_VisibilityByViewer(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 
 	owner := testutil.MakeUser(t, db, "owner")
 	viewer := testutil.MakeUser(t, db, "viewer")
@@ -182,7 +182,7 @@ func TestGetUserPosts_VisibilityByViewer(t *testing.T) {
 // 경로 6: 본인 초안만 조회
 func TestGetDrafts_OnlyOwnDrafts(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 
 	me := testutil.MakeUser(t, db, "me")
 	someone := testutil.MakeUser(t, db, "someone")
@@ -206,7 +206,7 @@ func TestGetDrafts_OnlyOwnDrafts(t *testing.T) {
 // 순차 시나리오 (좋아요 → 취소 → 다른 유저 좋아요) — 단계별 상태 누적에 의존.
 func TestToggleLike_TogglesAndCounts(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 
 	author := testutil.MakeUser(t, db, "author")
 	fan := testutil.MakeUser(t, db, "fan")
@@ -250,7 +250,7 @@ func TestToggleLike_TogglesAndCounts(t *testing.T) {
 // IsLiked는 조회 실패를 false로 삼키지 않고 오류로 돌려준다.
 func TestIsLiked_DBError(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	sqlDB, err := db.DB()
 	if err != nil {
 		t.Fatal(err)
@@ -292,7 +292,7 @@ func makePostAt(t *testing.T, db *gorm.DB, userID uint, minutesAgo int, opts ...
 
 func TestCreatePost(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	author := testutil.MakeUser(t, db, "author")
 
 	t.Run("상태를 안 주면 발행 글이 되고 작성자를 싣는다", func(t *testing.T) {
@@ -333,7 +333,7 @@ func TestCreatePost(t *testing.T) {
 
 func TestUpdatePost_Fields(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	owner := testutil.MakeUser(t, db, "owner")
 	p := &model.Post{Title: "제목", Content: "본문", UserID: owner.ID, IsPublic: true, TagsRaw: "go,rust"}
 	if err := svc.CreatePost(p); err != nil {
@@ -393,7 +393,7 @@ func TestUpdatePost_Fields(t *testing.T) {
 
 func TestGetPostByID_ViewsAndMissing(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	owner := testutil.MakeUser(t, db, "owner")
 	stranger := testutil.MakeUser(t, db, "stranger")
 	p := testutil.MakePost(t, db, owner.ID)
@@ -434,7 +434,7 @@ func TestGetPostByID_ViewsAndMissing(t *testing.T) {
 
 func TestGetPublicPosts(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	author := testutil.MakeUser(t, db, "author")
 	oldest := makePostAt(t, db, author.ID, 30)
 	middle := makePostAt(t, db, author.ID, 20)
@@ -489,7 +489,7 @@ func TestGetPublicPosts(t *testing.T) {
 
 func TestSearchPosts(t *testing.T) {
 	db := testutil.SetupDB(t)
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	author := testutil.MakeUser(t, db, "author")
 	byTitle := makePostAt(t, db, author.ID, 20, testutil.WithTitle("가비지 컬렉션"))
 	byContent := makePostAt(t, db, author.ID, 10, testutil.WithTitle("메모리"))

@@ -12,11 +12,10 @@ modules:
   validate:   { tier: base, path: internal/validate }
   dto:        { tier: base, role: data, path: internal/dto, depends_on: [model, utils] }
   docs:       { tier: base, path: docs, summary: "swaggo가 코드 주석에서 생성하는 API 문서" }
-  cache:      { tier: infra, role: infra, path: internal/cache }
   upload:     { tier: infra, role: infra, path: internal/upload }
   config:     { tier: infra, path: internal/config, depends_on: [model] }
   httputil:   { tier: infra, path: internal/httputil, depends_on: [dto, validate] }
-  post:       { tier: domain, path: internal/post, depends_on: [cache, dto, httputil, model] }
+  post:       { tier: domain, path: internal/post, depends_on: [dto, httputil, model] }
   comment:    { tier: domain, path: internal/comment, depends_on: [dto, httputil, model] }
   series:     { tier: domain, path: internal/series, depends_on: [dto, model, validate] }
   tag:        { tier: domain, path: internal/tag, depends_on: [dto] }
@@ -28,7 +27,7 @@ modules:
   router:
     tier: app
     path: internal/router
-    depends_on: [cache, comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, user]
+    depends_on: [comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, user]
 
 enums:
   post_status:

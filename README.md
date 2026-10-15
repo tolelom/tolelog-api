@@ -7,7 +7,6 @@ Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
 
 - **Framework**: Go Fiber v2
 - **Database**: MySQL + GORM
-- **Cache**: Redis (선택, 미연결 시 캐시 없이 동작)
 - **Auth**: JWT (Access 15분 + Refresh 7일)
 - **Docs**: Swagger (개발 환경에서만 노출)
 - **Deploy**: GitHub Actions → Docker → GHCR → GitOps 배포 (Renovate digest 핀 + git-sync-deploy)
@@ -21,7 +20,7 @@ Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
 - 시리즈 (글 모음, 순서 변경, 네비게이션)
 - 이미지 업로드 (MIME 검증, 5MB 제한)
 - RSS 피드, XML 사이트맵
-- Redis 캐싱, Rate Limiting, 보안 헤더, CORS
+- Rate Limiting, 보안 헤더, CORS
 - gzip 압축, 구조화된 로깅 (slog), Graceful Shutdown
 
 ## Getting Started

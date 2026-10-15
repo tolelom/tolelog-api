@@ -2,10 +2,7 @@ package post
 
 import (
 	"errors"
-	"fmt"
-	"log/slog"
 	"strings"
-	"tolelom_api/internal/cache"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
 
@@ -34,13 +31,11 @@ type Service interface {
 }
 
 type service struct {
-	db    *gorm.DB
-	cache *cache.Cache
+	db *gorm.DB
 }
 
-// NewService creates a new post service. cache can be nil for graceful degradation.
-func NewService(db *gorm.DB, cache *cache.Cache) Service {
-	return &service{db: db, cache: cache}
+func NewService(db *gorm.DB) Service {
+	return &service{db: db}
 }
 
 func splitTags(tagsStr string) []string {
@@ -92,37 +87,11 @@ func (s *service) CreatePost(post *model.Post) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	s.invalidatePostCaches(0)
-	return nil
+	return err
 }
 
 // GetPostByID - ID로 글 조회
 func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
-	// Try cache for public posts (when no specific user context needed for cache key)
-	if s.cache != nil {
-		var post model.Post
-		cacheKey := fmt.Sprintf(cachePost, postID)
-		if err := s.cache.Get(cacheKey, &post); err == nil {
-			// Cache hit — still enforce access control
-			if !post.VisibleTo(userID) {
-				return nil, ErrUnauthorized
-			}
-			// Increment view count in DB (non-blocking for cached reads)
-			go func() {
-				_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
-			}()
-			post.ViewCount++
-			// Update cache with incremented view count
-			if err := s.cache.Set(cacheKey, &post, cacheTTLPost); err != nil {
-				slog.Warn("캐시 갱신 실패 (조회수)", "postID", postID, "error", err)
-			}
-			return &post, nil
-		}
-	}
-
 	var post model.Post
 	if err := s.db.Preload("User").Preload("Tags").Preload("Series").First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -138,14 +107,6 @@ func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	// Increment view count
 	_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
 	post.ViewCount++
-
-	// Cache the post (regardless of public/private — access control is checked on retrieval)
-	if s.cache != nil {
-		cacheKey := fmt.Sprintf(cachePost, postID)
-		if err := s.cache.Set(cacheKey, &post, cacheTTLPost); err != nil {
-			slog.Warn("캐시 저장 실패 (개별 글)", "postID", postID, "error", err)
-		}
-	}
 
 	return &post, nil
 }
@@ -209,8 +170,6 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 		return nil, err
 	}
 
-	s.invalidatePostCaches(postID)
-
 	return &post, nil
 }
 
@@ -228,11 +187,5 @@ func (s *service) DeletePost(postID uint, userID uint) error {
 		return ErrUnauthorized
 	}
 
-	if err := s.db.Delete(&post).Error; err != nil {
-		return err
-	}
-
-	s.invalidatePostCaches(postID)
-
-	return nil
+	return s.db.Delete(&post).Error
 }

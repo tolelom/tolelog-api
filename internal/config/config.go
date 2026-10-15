@@ -27,7 +27,6 @@ type Config struct {
 	JWTSecret   string
 	Port        string
 	Environment string
-	RedisAddr   string
 	UploadDir   string
 	DB          *gorm.DB
 }
@@ -62,7 +61,6 @@ func LoadConfig() (*Config, error) {
 		JWTSecret:   jwtSecret,
 		Port:        getEnv("PORT", "8080"),
 		Environment: environment,
-		RedisAddr:   getEnv("REDIS_ADDR", "localhost:6379"),
 		UploadDir:   getEnv("UPLOAD_DIR", defaultUploadDir),
 	}
 

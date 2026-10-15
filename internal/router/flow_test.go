@@ -18,20 +18,17 @@ import (
 const testJWTSecret = "flow-test-secret"
 
 // newFlowApp wires the real router against an in-memory DB.
-// Redis points at an unreachable port so the app runs without a cache.
 func newFlowApp(t *testing.T) (*fiber.App, *gorm.DB) {
 	t.Helper()
 	db := testutil.SetupDB(t)
 	cfg := &config.Config{
 		JWTSecret:   testJWTSecret,
 		Environment: "test",
-		RedisAddr:   "127.0.0.1:1",
 		UploadDir:   t.TempDir(),
 		DB:          db,
 	}
 	app := fiber.New()
-	cleanup := Setup(app, cfg)
-	t.Cleanup(cleanup)
+	Setup(app, cfg)
 	return app, db
 }
 

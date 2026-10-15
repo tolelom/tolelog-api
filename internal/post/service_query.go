@@ -1,8 +1,6 @@
 package post
 
 import (
-	"fmt"
-	"log/slog"
 	"regexp"
 	"strings"
 	"tolelom_api/internal/model"
@@ -43,15 +41,6 @@ func SanitizeTag(tag string) (string, error) {
 
 // GetPublicPosts - 공개 글 목록 조회 (페이지네이션, 태그 필터)
 func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, int64, error) {
-	// Try cache
-	if s.cache != nil {
-		cacheKey := fmt.Sprintf(cachePublicPosts, page, pageSize, tag)
-		var cached cachedPublicPostList
-		if err := s.cache.Get(cacheKey, &cached); err == nil {
-			return cached.Posts, cached.Total, nil
-		}
-	}
-
 	var posts []model.Post
 	var total int64
 
@@ -81,14 +70,6 @@ func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, 
 		Limit(pageSize).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
-	}
-
-	// Store in cache
-	if s.cache != nil {
-		cacheKey := fmt.Sprintf(cachePublicPosts, page, pageSize, tag)
-		if err := s.cache.Set(cacheKey, &cachedPublicPostList{Posts: posts, Total: total}, cacheTTLList); err != nil {
-			slog.Warn("캐시 저장 실패 (목록)", "error", err)
-		}
 	}
 
 	return posts, total, nil

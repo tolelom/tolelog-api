@@ -2,9 +2,7 @@ package router
 
 import (
 	"context"
-	"log/slog"
 	"time"
-	"tolelom_api/internal/cache"
 	"tolelom_api/internal/comment"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/dto"
@@ -35,12 +33,10 @@ type HealthResponse struct {
 type ReadinessResponse struct {
 	Status   string `json:"status" example:"ok"`
 	Database string `json:"database" example:"ok"`
-	Redis    string `json:"redis" example:"ok"`
 }
 
-// Setup wires middleware, services, and routes, returning a cleanup func
-// that releases resources (e.g., Redis client) created during setup.
-func Setup(app *fiber.App, cfg *config.Config) func() {
+// Setup wires middleware, services, and routes.
+func Setup(app *fiber.App, cfg *config.Config) {
 	// Panic recovery: 모든 미들웨어/핸들러의 panic을 복구해야 하므로 가장 먼저 등록
 	app.Use(middleware.PanicRecovery())
 
@@ -71,21 +67,11 @@ func Setup(app *fiber.App, cfg *config.Config) func() {
 	// 정적 파일 서빙 (업로드된 이미지)
 	app.Static("/uploads", "./uploads")
 
-	// Redis 캐시 초기화 (실패 시 캐시 없이 동작)
-	var postCache *cache.Cache
-	rdb, err := cache.New(cfg.RedisAddr)
-	if err != nil {
-		slog.Warn("Redis 연결 실패, 캐시 없이 동작합니다", "error", err)
-	} else {
-		slog.Info("Redis 연결 성공")
-		postCache = rdb
-	}
-
 	// DI: 서비스 생성 → 핸들러에 주입
 	authService := user.NewAuthService(cfg.DB, cfg.JWTSecret)
 	userHandler := user.NewHandler(authService, cfg.UploadDir)
 
-	postService := post.NewService(cfg.DB, postCache)
+	postService := post.NewService(cfg.DB)
 	postHandler := post.NewHandler(postService)
 
 	commentService := comment.NewService(cfg.DB)
@@ -116,16 +102,16 @@ func Setup(app *fiber.App, cfg *config.Config) func() {
 		})
 	})
 
-	// Readiness check: DB + Redis 상태까지 확인
+	// Readiness check: DB 연결 상태를 확인
 	// @Summary		Readiness Check
-	// @Description	DB와 Redis 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
+	// @Description	DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
 	// @Tags			Health
 	// @Produce		json
 	// @Success		200	{object}	ReadinessResponse
 	// @Failure		503	{object}	ReadinessResponse
 	// @Router			/health/ready [get]
 	app.Get("/health/ready", func(c *fiber.Ctx) error {
-		resp := ReadinessResponse{Status: "ok", Database: "ok", Redis: "ok"}
+		resp := ReadinessResponse{Status: "ok", Database: "ok"}
 		httpStatus := fiber.StatusOK
 
 		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
@@ -137,16 +123,6 @@ func Setup(app *fiber.App, cfg *config.Config) func() {
 			httpStatus = fiber.StatusServiceUnavailable
 		} else if err := sqlDB.PingContext(ctx); err != nil {
 			resp.Database = "error: " + err.Error()
-			resp.Status = "degraded"
-			httpStatus = fiber.StatusServiceUnavailable
-		}
-
-		if postCache == nil {
-			resp.Redis = "disabled"
-		} else if err := postCache.Ping(ctx); err != nil {
-			resp.Redis = "error: " + err.Error()
-			// Redis는 선택적 의존성이므로 degraded로만 표시하고 200 유지하지 않음.
-			// 운영상 자동 복구를 원하면 200 반환해도 되지만, 명시적 degraded 신호를 위해 503 유지.
 			resp.Status = "degraded"
 			httpStatus = fiber.StatusServiceUnavailable
 		}
@@ -267,14 +243,4 @@ func Setup(app *fiber.App, cfg *config.Config) func() {
 	users.Get("/:user_id", readLimiter, userHandler.GetProfile)                    // 사용자 프로필
 	users.Get("/:user_id/series", readLimiter, seriesHandler.GetUserSeries)       // 사용자 시리즈 목록
 	users.Get("/:user_id/posts", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
-
-	return func() {
-		if postCache != nil {
-			if err := postCache.Close(); err != nil {
-				slog.Warn("Redis 연결 종료 실패", "error", err)
-			} else {
-				slog.Info("Redis 연결 종료")
-			}
-		}
-	}
 }

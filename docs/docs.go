@@ -575,11 +575,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/dto.SuccessResponse"
-                        }
+                    "204": {
+                        "description": "삭제 성공"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -631,6 +628,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "최대 댓글 수 (기본값: 200, 최대: 500)",
+                        "name": "limit",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1742,7 +1745,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다",
+                "description": "현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다. 다른 기기의 리프레시 토큰은 무효가 되고, 응답의 새 토큰 쌍으로 이 기기 세션을 이어 간다",
                 "consumes": [
                     "application/json"
                 ],
@@ -2025,7 +2028,11 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "draft",
+                        "published"
+                    ]
                 },
                 "tags": {
                     "type": "string",
@@ -2299,7 +2306,11 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "draft",
+                        "published"
+                    ]
                 },
                 "tags": {
                     "type": "string",

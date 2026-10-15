@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Go Fiber REST API server (`tolelom_api`) with JWT authentication, GORM/MySQL persistence, Redis caching, and Swagger docs. Go 1.25+.
+Go Fiber REST API server (`tolelom_api`) with JWT authentication, GORM/MySQL persistence, and Swagger docs. Go 1.25+.
 
 ## Common Commands
 
@@ -41,10 +41,9 @@ air
 - `internal/config/` — Config struct with all env vars. Initializes MySQL via GORM with auto-migration for User, Post, Tag, Comment. Includes legacy tag data migration (comma-separated → normalized tables).
 - `internal/router/` — Route registration, DI wiring, middleware stack setup. Creates services, injects into handlers. Rate limiting on auth endpoints (10/min).
 - `internal/user/` — User/auth domain. `handler.go` (Register/Login/RefreshToken/GetProfile/UploadAvatar), `service.go` (AuthService interface + implementation).
-- `internal/post/` — Post domain. `handler.go` (CRUD + search + pagination + tag filtering), `service.go` (Service interface with ownership checks, Redis caching).
+- `internal/post/` — Post domain. `handler.go` (CRUD + search + pagination + tag filtering), `service.go` (Service interface with ownership checks).
 - `internal/comment/` — Comment domain. `handler.go` (GetComments/CreateComment/DeleteComment), `service.go` (Service interface with access control).
 - `internal/image/` — Image upload handler. Accepts multipart/form-data, validates file type, stores to upload dir.
-- `internal/cache/` — Redis wrapper with JSON serialization, TTL support, and pattern-based deletion for cache invalidation.
 - `internal/dto/` — Request/response DTOs with validation rules and model-to-DTO conversion functions.
 - `internal/model/` — GORM entities: `User`, `Post`, `Comment`, `Tag`. Post↔Tag is M:N via `post_tags` junction table. Post and Comment use soft deletes.
 - `internal/validate/` — Shared `go-playground/validator` instance with custom `alphanum_underscore` rule.
@@ -77,7 +76,6 @@ Environment variables loaded from `.env` (see `.env_example`):
 | `DB_NAME` | blog | |
 | `JWT_SECRET` | (auto-generated in dev) | **Required** in production |
 | `ENVIRONMENT` | development | `development` or `production` |
-| `REDIS_ADDR` | localhost:6379 | Optional; graceful fallback if unavailable |
 | `UPLOAD_DIR` | ./uploads/images | File storage path |
 
 ## CI/CD

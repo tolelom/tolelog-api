@@ -11,7 +11,7 @@ import (
 
 func TestNewService(t *testing.T) {
 	db := &gorm.DB{}
-	svc := NewService(db, nil)
+	svc := NewService(db)
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}

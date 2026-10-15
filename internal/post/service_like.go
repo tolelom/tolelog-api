@@ -53,8 +53,6 @@ func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
 		return false, 0, err
 	}
 
-	s.invalidatePostCaches(postID)
-
 	return liked, likeCount, nil
 }
 
