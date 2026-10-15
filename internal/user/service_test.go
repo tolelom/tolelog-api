@@ -12,7 +12,7 @@ type mockAuthService struct {
 	getUserByIDFn      func(userID uint) (*model.User, error)
 	updateAvatarFn     func(userID uint, avatarURL string) error
 	refreshTokensFn    func(refreshToken string) (*dto.AuthResponse, error)
-	changePasswordFn   func(userID uint, req *dto.ChangePasswordRequest) error
+	changePasswordFn   func(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error)
 	logoutFn           func(userID uint) error
 	deleteUserFn       func(userID uint) error
 }
@@ -52,11 +52,11 @@ func (m *mockAuthService) RefreshTokens(refreshToken string) (*dto.AuthResponse,
 	return nil, nil
 }
 
-func (m *mockAuthService) ChangePassword(userID uint, req *dto.ChangePasswordRequest) error {
+func (m *mockAuthService) ChangePassword(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
 	if m.changePasswordFn != nil {
 		return m.changePasswordFn(userID, req)
 	}
-	return nil
+	return newAuthResponse(), nil
 }
 
 func (m *mockAuthService) Logout(userID uint) error {

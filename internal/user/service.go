@@ -27,7 +27,7 @@ type AuthService interface {
 	GetUserByID(userID uint) (*model.User, error)
 	UpdateAvatar(userID uint, avatarURL string) error
 	RefreshTokens(refreshToken string) (*dto.AuthResponse, error)
-	ChangePassword(userID uint, req *dto.ChangePasswordRequest) error
+	ChangePassword(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error)
 	Logout(userID uint) error
 	DeleteUser(userID uint) error
 }
@@ -164,27 +164,47 @@ func (s *authService) DeleteUser(userID uint) error {
 	return nil
 }
 
-func (s *authService) ChangePassword(userID uint, req *dto.ChangePasswordRequest) error {
+// ChangePassword 는 token_version 을 올려 다른 기기의 리프레시 토큰을 끊고, 바꾼 기기에는 새 토큰 쌍을 준다.
+func (s *authService) ChangePassword(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
 	var u model.User
 	if err := s.db.First(&u, userID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrUserNotFound
+			return nil, ErrUserNotFound
 		}
-		return err
+		return nil, err
 	}
 
 	if !utils.CheckPasswordHash(req.CurrentPassword, u.PasswordHash) {
-		return ErrInvalidPassword
+		return nil, ErrInvalidPassword
 	}
 
 	if utils.CheckPasswordHash(req.NewPassword, u.PasswordHash) {
-		return ErrSamePassword
+		return nil, ErrSamePassword
 	}
 
 	hash, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.db.Model(&u).Update("password", hash).Error
+	if err := s.db.Model(&u).Updates(map[string]interface{}{
+		"password":      hash,
+		"token_version": gorm.Expr("token_version + 1"),
+	}).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.First(&u, userID).Error; err != nil {
+		return nil, err
+	}
+
+	accessToken, refreshToken, err := utils.GenerateTokenPair(&u, s.jwtSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.AuthResponse{
+		User:         dto.UserToResponse(&u),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}, nil
 }

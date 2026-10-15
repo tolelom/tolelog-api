@@ -700,8 +700,8 @@ func TestDeleteMe_ServiceError(t *testing.T) {
 
 func TestChangePassword_Success(t *testing.T) {
 	ms := &mockAuthService{
-		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
-			return nil
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
+			return newAuthResponse(), nil
 		},
 	}
 	app := setupAuthApp(ms, 1)
@@ -725,6 +725,10 @@ func TestChangePassword_Success(t *testing.T) {
 	}
 	if result.Status != "success" {
 		t.Errorf("expected 'success', got %q", result.Status)
+	}
+	data, _ := result.Data.(map[string]interface{})
+	if data["access_token"] != "access-token" || data["refresh_token"] != "refresh-token" {
+		t.Errorf("응답에 새 토큰 쌍이 없다: %v", result.Data)
 	}
 }
 
@@ -793,8 +797,8 @@ func TestChangePassword_NewPasswordTooShort(t *testing.T) {
 
 func TestChangePassword_InvalidCurrentPassword(t *testing.T) {
 	ms := &mockAuthService{
-		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
-			return ErrInvalidPassword
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
+			return nil, ErrInvalidPassword
 		},
 	}
 	app := setupAuthApp(ms, 1)
@@ -814,8 +818,8 @@ func TestChangePassword_InvalidCurrentPassword(t *testing.T) {
 
 func TestChangePassword_SamePassword(t *testing.T) {
 	ms := &mockAuthService{
-		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
-			return ErrSamePassword
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
+			return nil, ErrSamePassword
 		},
 	}
 	app := setupAuthApp(ms, 1)
@@ -835,8 +839,8 @@ func TestChangePassword_SamePassword(t *testing.T) {
 
 func TestChangePassword_ServiceError(t *testing.T) {
 	ms := &mockAuthService{
-		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) error {
-			return errors.New("db error")
+		changePasswordFn: func(userID uint, req *dto.ChangePasswordRequest) (*dto.AuthResponse, error) {
+			return nil, errors.New("db error")
 		},
 	}
 	app := setupAuthApp(ms, 1)

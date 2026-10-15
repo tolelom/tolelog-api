@@ -172,23 +172,36 @@ func TestChangePassword(t *testing.T) {
 	const newPassword = "fixture-new-pw-2!"
 
 	t.Run("현재 비밀번호가 틀리면 거부한다", func(t *testing.T) {
-		err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: "wrong-pw", NewPassword: newPassword})
+		_, err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: "wrong-pw", NewPassword: newPassword})
 		if !errors.Is(err, ErrInvalidPassword) {
 			t.Fatalf("err = %v, want ErrInvalidPassword", err)
 		}
 	})
 
 	t.Run("같은 비밀번호로는 바꾸지 않는다", func(t *testing.T) {
-		err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: testutil.DefaultPassword, NewPassword: testutil.DefaultPassword})
+		_, err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: testutil.DefaultPassword, NewPassword: testutil.DefaultPassword})
 		if !errors.Is(err, ErrSamePassword) {
 			t.Fatalf("err = %v, want ErrSamePassword", err)
 		}
 	})
 
-	t.Run("바꾸면 새 비밀번호로만 로그인된다", func(t *testing.T) {
-		err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: testutil.DefaultPassword, NewPassword: newPassword})
+	t.Run("바꾸면 새 비밀번호로만 로그인되고 다른 세션은 끊긴다", func(t *testing.T) {
+		otherDevice, err := login(t, svc, "alice", testutil.DefaultPassword)
+		if err != nil {
+			t.Fatalf("login: %v", err)
+		}
+		res, err := svc.ChangePassword(u.ID, &dto.ChangePasswordRequest{CurrentPassword: testutil.DefaultPassword, NewPassword: newPassword})
 		if err != nil {
 			t.Fatalf("ChangePassword: %v", err)
+		}
+		if _, err := svc.RefreshTokens(otherDevice.RefreshToken); !errors.Is(err, ErrInvalidRefreshToken) {
+			t.Fatalf("바꾸기 전 리프레시 토큰 err = %v, want ErrInvalidRefreshToken", err)
+		}
+		if _, err := svc.RefreshTokens(res.RefreshToken); err != nil {
+			t.Fatalf("바꾼 기기가 받은 리프레시 토큰이 거부됐다: %v", err)
+		}
+		if res.User.ID != u.ID || res.AccessToken == "" {
+			t.Fatalf("res = %+v", res)
 		}
 		if _, err := login(t, svc, "alice", testutil.DefaultPassword); !errors.Is(err, ErrInvalidCredentials) {
 			t.Fatalf("옛 비밀번호 로그인 err = %v, want ErrInvalidCredentials", err)
@@ -199,7 +212,7 @@ func TestChangePassword(t *testing.T) {
 	})
 
 	t.Run("없는 사용자", func(t *testing.T) {
-		err := svc.ChangePassword(9999, &dto.ChangePasswordRequest{CurrentPassword: "x", NewPassword: newPassword})
+		_, err := svc.ChangePassword(9999, &dto.ChangePasswordRequest{CurrentPassword: "x", NewPassword: newPassword})
 		if !errors.Is(err, ErrUserNotFound) {
 			t.Fatalf("err = %v, want ErrUserNotFound", err)
 		}

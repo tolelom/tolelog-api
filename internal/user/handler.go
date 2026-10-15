@@ -229,7 +229,7 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 
 // ChangePassword godoc
 // @Summary      비밀번호 변경
-// @Description  현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다
+// @Description  현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다. 다른 기기의 리프레시 토큰은 무효가 되고, 응답의 새 토큰 쌍으로 이 기기 세션을 이어 간다
 // @Tags         Users
 // @Accept       json
 // @Produce      json
@@ -256,7 +256,8 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
-	if err := h.authService.ChangePassword(userID, &req); err != nil {
+	authResp, err := h.authService.ChangePassword(userID, &req)
+	if err != nil {
 		if errors.Is(err, ErrInvalidPassword) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("invalid_current_password", "현재 비밀번호가 올바르지 않습니다"))
 		}
@@ -268,8 +269,12 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"message": "비밀번호가 변경되었습니다",
+		Data: dto.AuthDataResponse{
+			AccessToken:  authResp.AccessToken,
+			RefreshToken: authResp.RefreshToken,
+			Username:     authResp.User.Username,
+			UserID:       authResp.User.ID,
+			AvatarURL:    authResp.User.AvatarURL,
 		},
 	})
 }
