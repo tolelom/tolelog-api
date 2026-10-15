@@ -25,3 +25,11 @@ type Post struct {
 	UpdatedAt time.Time      `gorm:"autoUpdateTime"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+// VisibleTo - 공개된 발행 글은 누구나, 그 외(비공개·draft)는 작성자만 볼 수 있다. 목록 쿼리와 같은 기준.
+func (p *Post) VisibleTo(userID *uint) bool {
+	if userID != nil && *userID == p.UserID {
+		return true
+	}
+	return p.IsPublic && p.Status == "published"
+}

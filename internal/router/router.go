@@ -241,17 +241,17 @@ func Setup(app *fiber.App, cfg *config.Config) func() {
 	posts.Get("/:id/like", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
 
 	// Comment routes
-	posts.Get("/:id/comments", readLimiter, commentHandler.GetComments)                                                    // 댓글 목록 조회
+	posts.Get("/:id/comments", readLimiter, middleware.OptionalAuthMiddleware(cfg), commentHandler.GetComments)                                                    // 댓글 목록 조회
 	posts.Post("/:id/comments", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.CreateComment)              // 댓글 작성 (인증 필요, rate limiting)
 	posts.Put("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)   // 댓글 수정 (인증 필요, rate limiting)
 	posts.Delete("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요, rate limiting)
 
 	// Series navigation (under posts)
-	posts.Get("/:id/series-nav", readLimiter, seriesHandler.GetSeriesNavigation)
+	posts.Get("/:id/series-nav", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetSeriesNavigation)
 
 	// Series routes
 	seriesGroup := api.Group("/series")
-	seriesGroup.Get("/:id", readLimiter, seriesHandler.GetSeries)
+	seriesGroup.Get("/:id", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetSeries)
 	seriesGroup.Post("", middleware.AuthMiddleware(cfg), seriesHandler.CreateSeries)
 	seriesGroup.Put("/:id", middleware.AuthMiddleware(cfg), seriesHandler.UpdateSeries)
 	seriesGroup.Delete("/:id", middleware.AuthMiddleware(cfg), seriesHandler.DeleteSeries)

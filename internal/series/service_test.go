@@ -26,7 +26,7 @@ func (m *mockService) CreateSeries(series *model.Series) error {
 	return nil
 }
 
-func (m *mockService) GetSeriesByID(seriesID uint) (*model.Series, []model.Post, error) {
+func (m *mockService) GetSeriesByID(seriesID uint, _ *uint) (*model.Series, []model.Post, error) {
 	if m.getSeriesByIDFn != nil {
 		return m.getSeriesByIDFn(seriesID)
 	}
@@ -75,7 +75,7 @@ func (m *mockService) ReorderPosts(seriesID uint, postIDs []uint, userID uint) e
 	return nil
 }
 
-func (m *mockService) GetSeriesNavigation(postID uint) (*dto.SeriesNavResponse, error) {
+func (m *mockService) GetSeriesNavigation(postID uint, _ *uint) (*dto.SeriesNavResponse, error) {
 	if m.getSeriesNavigationFn != nil {
 		return m.getSeriesNavigationFn(postID)
 	}

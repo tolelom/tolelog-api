@@ -63,6 +63,9 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 		if errors.Is(err, ErrParentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("parent_not_found", "부모 댓글을 찾을 수 없습니다"))
 		}
+		if errors.Is(err, ErrUnauthorized) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글에 댓글을 쓸 권한이 없습니다"))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("creation_failed", "댓글 저장에 실패했습니다"))
 	}
 
@@ -94,8 +97,14 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 		limit = 200
 	}
 
-	comments, total, err := h.service.GetCommentsByPostID(uint(postID), limit)
+	comments, total, err := h.service.GetCommentsByPostID(uint(postID), httputil.OptionalUserID(c), limit)
 	if err != nil {
+		if errors.Is(err, ErrPostNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "게시글을 찾을 수 없습니다"))
+		}
+		if errors.Is(err, ErrUnauthorized) {
+			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글의 댓글을 볼 권한이 없습니다"))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "댓글 조회에 실패했습니다"))
 	}
 

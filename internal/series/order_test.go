@@ -9,7 +9,7 @@ import (
 
 func seriesOrders(t *testing.T, svc Service, seriesID uint) []uint {
 	t.Helper()
-	_, posts, err := svc.GetSeriesByID(seriesID)
+	_, posts, err := svc.GetSeriesByID(seriesID, nil)
 	if err != nil {
 		t.Fatalf("GetSeries: %v", err)
 	}

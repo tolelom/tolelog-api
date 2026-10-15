@@ -79,7 +79,7 @@ func TestGetSeriesByID(t *testing.T) {
 	}
 
 	t.Run("시리즈 순서대로 소속 글만 돌려준다", func(t *testing.T) {
-		got, posts, err := svc.GetSeriesByID(s.ID)
+		got, posts, err := svc.GetSeriesByID(s.ID, nil)
 		if err != nil {
 			t.Fatalf("GetSeriesByID: %v", err)
 		}
@@ -96,7 +96,7 @@ func TestGetSeriesByID(t *testing.T) {
 	})
 
 	t.Run("없는 시리즈", func(t *testing.T) {
-		_, _, err := svc.GetSeriesByID(9999)
+		_, _, err := svc.GetSeriesByID(9999, nil)
 		if !errors.Is(err, ErrSeriesNotFound) {
 			t.Fatalf("err = %v, want ErrSeriesNotFound", err)
 		}
@@ -206,7 +206,7 @@ func TestDeleteSeries(t *testing.T) {
 		if err := svc.DeleteSeries(s.ID, owner.ID); err != nil {
 			t.Fatalf("DeleteSeries: %v", err)
 		}
-		if _, _, err := svc.GetSeriesByID(s.ID); !errors.Is(err, ErrSeriesNotFound) {
+		if _, _, err := svc.GetSeriesByID(s.ID, nil); !errors.Is(err, ErrSeriesNotFound) {
 			t.Fatalf("삭제 뒤 조회 err = %v, want ErrSeriesNotFound", err)
 		}
 		got := reloadPost(t, db, p.ID)
@@ -223,7 +223,7 @@ func TestDeleteSeries(t *testing.T) {
 		if err := svc.DeleteSeries(s.ID, stranger.ID); !errors.Is(err, ErrUnauthorized) {
 			t.Fatalf("err = %v, want ErrUnauthorized", err)
 		}
-		if _, _, err := svc.GetSeriesByID(s.ID); err != nil {
+		if _, _, err := svc.GetSeriesByID(s.ID, nil); err != nil {
 			t.Fatalf("거부됐는데 시리즈가 사라졌다: %v", err)
 		}
 	})
@@ -426,7 +426,7 @@ func TestGetSeriesNavigation(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			nav, err := svc.GetSeriesNavigation(c.post.ID)
+			nav, err := svc.GetSeriesNavigation(c.post.ID, nil)
 			if err != nil || nav == nil {
 				t.Fatalf("nav=%v err=%v", nav, err)
 			}
@@ -446,7 +446,7 @@ func TestGetSeriesNavigation(t *testing.T) {
 	}
 
 	t.Run("이전·다음 글 제목을 싣는다", func(t *testing.T) {
-		nav, _ := svc.GetSeriesNavigation(middle.ID)
+		nav, _ := svc.GetSeriesNavigation(middle.ID, nil)
 		if nav.PrevPost.Title != "#1" || nav.NextPost.Title != "#3" {
 			t.Fatalf("titles = (%q, %q), want (#1, #3)", nav.PrevPost.Title, nav.NextPost.Title)
 		}
@@ -454,7 +454,7 @@ func TestGetSeriesNavigation(t *testing.T) {
 
 	for name, id := range map[string]uint{"시리즈에 없는 글": loose.ID, "없는 글": 9999} {
 		t.Run(name+"은 nil", func(t *testing.T) {
-			nav, err := svc.GetSeriesNavigation(id)
+			nav, err := svc.GetSeriesNavigation(id, nil)
 			if err != nil || nav != nil {
 				t.Fatalf("nav=%+v err=%v, want nil, nil", nav, err)
 			}
@@ -478,5 +478,72 @@ func TestCountPostsInSeries_SkipsDeleted(t *testing.T) {
 	}
 	if got != 1 {
 		t.Fatalf("count = %d, want 1", got)
+	}
+}
+
+func TestSeries_HidesPrivateAndDraftPostsFromNonOwners(t *testing.T) {
+	db := testutil.SetupDB(t)
+	owner := testutil.MakeUser(t, db, "owner")
+	stranger := testutil.MakeUser(t, db, "stranger")
+	s := makeSeries(t, db, owner.ID, "시리즈")
+	first := testutil.MakePost(t, db, owner.ID, testutil.WithTitle("#1"))
+	private := testutil.MakePost(t, db, owner.ID, testutil.WithTitle("비공개"), testutil.WithPrivate())
+	draft := testutil.MakePost(t, db, owner.ID, testutil.WithTitle("초안"), testutil.WithStatus("draft"))
+	last := testutil.MakePost(t, db, owner.ID, testutil.WithTitle("#4"))
+	svc := NewService(db)
+	addPosts(t, svc, s.ID, owner.ID, first, private, draft, last)
+
+	viewers := []struct {
+		name     string
+		viewerID *uint
+		want     []uint
+	}{
+		{"익명", nil, []uint{first.ID, last.ID}},
+		{"다른 사용자", &stranger.ID, []uint{first.ID, last.ID}},
+		{"작성자", &owner.ID, []uint{first.ID, private.ID, draft.ID, last.ID}},
+	}
+	for _, v := range viewers {
+		t.Run(v.name+" 시리즈 상세", func(t *testing.T) {
+			_, posts, err := svc.GetSeriesByID(s.ID, v.viewerID)
+			if err != nil {
+				t.Fatalf("GetSeriesByID: %v", err)
+			}
+			ids := make([]uint, len(posts))
+			for i, p := range posts {
+				ids[i] = p.ID
+			}
+			if !equal(ids, v.want) {
+				t.Fatalf("posts = %v, want %v", ids, v.want)
+			}
+		})
+	}
+
+	t.Run("다른 사용자의 이전·다음 글은 숨은 글을 건너뛴다", func(t *testing.T) {
+		nav, err := svc.GetSeriesNavigation(first.ID, &stranger.ID)
+		if err != nil || nav == nil {
+			t.Fatalf("nav=%v err=%v", nav, err)
+		}
+		if nav.NextPost == nil || nav.NextPost.ID != last.ID {
+			t.Fatalf("NextPost = %+v, want #4", nav.NextPost)
+		}
+		if nav.TotalPosts != 2 {
+			t.Fatalf("TotalPosts = %d, want 2 (숨은 글을 세면 글 수가 새어 나간다)", nav.TotalPosts)
+		}
+	})
+
+	t.Run("작성자의 이전·다음 글에는 자기 숨은 글이 나온다", func(t *testing.T) {
+		nav, _ := svc.GetSeriesNavigation(first.ID, &owner.ID)
+		if nav.NextPost == nil || nav.NextPost.ID != private.ID || nav.TotalPosts != 4 {
+			t.Fatalf("nav = %+v, want next=비공개, total=4", nav)
+		}
+	})
+
+	for _, hidden := range []*model.Post{private, draft} {
+		t.Run(hidden.Title+" 글의 시리즈 정보는 다른 사용자에게 nil", func(t *testing.T) {
+			nav, err := svc.GetSeriesNavigation(hidden.ID, &stranger.ID)
+			if err != nil || nav != nil {
+				t.Fatalf("nav=%+v err=%v, want nil, nil", nav, err)
+			}
+		})
 	}
 }

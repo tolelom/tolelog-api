@@ -50,6 +50,14 @@ func RequireAuth(c *fiber.Ctx) (uint, error) {
 	return userID, nil
 }
 
+// OptionalUserID returns the authenticated userID set by OptionalAuthMiddleware, or nil for anonymous requests.
+func OptionalUserID(c *fiber.Ctx) *uint {
+	if userID, ok := c.Locals("userID").(uint); ok {
+		return &userID
+	}
+	return nil
+}
+
 // NewPagination creates a Pagination struct from page, pageSize, and total.
 func NewPagination(page, pageSize int, total int64) dto.Pagination {
 	return dto.Pagination{
