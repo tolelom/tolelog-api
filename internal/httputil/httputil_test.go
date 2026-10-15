@@ -255,3 +255,43 @@ func TestNewPagination_TotalPages(t *testing.T) {
 		}
 	}
 }
+
+// --- ParseID ---
+
+func TestParseID(t *testing.T) {
+	app := fiber.New()
+	var got uint
+	app.Get("/items/:id", func(c *fiber.Ctx) error {
+		id, err := ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
+		if err != nil {
+			return nil
+		}
+		got = id
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	cases := []struct {
+		path       string
+		wantStatus int
+		wantID     uint
+	}{
+		{"/items/42", http.StatusOK, 42},
+		{"/items/abc", http.StatusBadRequest, 0},
+		{"/items/-1", http.StatusBadRequest, 0},
+		{"/items/4294967296", http.StatusBadRequest, 0}, // uint32 를 넘는 값
+	}
+	for _, c := range cases {
+		got = 0
+		resp, _ := app.Test(httptest.NewRequest(http.MethodGet, c.path, nil))
+		if resp.StatusCode != c.wantStatus || got != c.wantID {
+			t.Errorf("%s: status=%d id=%d, want %d %d", c.path, resp.StatusCode, got, c.wantStatus, c.wantID)
+		}
+		if c.wantStatus == http.StatusBadRequest {
+			body := make([]byte, 256)
+			n, _ := resp.Body.Read(body)
+			if !strings.Contains(string(body[:n]), `"error":"invalid_id"`) || !strings.Contains(string(body[:n]), "잘못된 ID입니다") {
+				t.Errorf("%s: body = %s", c.path, body[:n])
+			}
+		}
+	}
+}

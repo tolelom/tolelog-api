@@ -2,7 +2,6 @@ package series
 
 import (
 	"errors"
-	"strconv"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
@@ -75,12 +74,12 @@ func (h *Handler) CreateSeries(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /series/{id} [get]
 func (h *Handler) GetSeries(c *fiber.Ctx) error {
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
-	series, posts, err := h.service.GetSeriesByID(uint(seriesID), httputil.OptionalUserID(c))
+	series, posts, err := h.service.GetSeriesByID(seriesID, httputil.OptionalUserID(c))
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
@@ -105,12 +104,12 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /users/{user_id}/series [get]
 func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
+	userID, err := httputil.ParseID(c, "user_id", "invalid_id", "잘못된 사용자 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 사용자 ID입니다"))
+		return nil
 	}
 
-	seriesList, postCounts, err := h.service.GetSeriesByUserID(uint(userID), httputil.OptionalUserID(c))
+	seriesList, postCounts, err := h.service.GetSeriesByUserID(userID, httputil.OptionalUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 목록 조회에 실패했습니다"))
 	}
@@ -149,9 +148,9 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
 	var req dto.UpdateSeriesRequest
@@ -162,7 +161,7 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
-	series, err := h.service.UpdateSeries(uint(seriesID), userID, &req)
+	series, err := h.service.UpdateSeries(seriesID, userID, &req)
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
@@ -205,12 +204,12 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
-	if err := h.service.DeleteSeries(uint(seriesID), userID); err != nil {
+	if err := h.service.DeleteSeries(seriesID, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
 		}
@@ -249,9 +248,9 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
 	var req dto.AddPostToSeriesRequest
@@ -262,7 +261,7 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
-	if err := h.service.AddPostToSeries(uint(seriesID), req.PostID, req.Order, userID); err != nil {
+	if err := h.service.AddPostToSeries(seriesID, req.PostID, req.Order, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
 		}
@@ -303,17 +302,17 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
-	postID, err := strconv.ParseUint(c.Params("post_id"), 10, 32)
+	postID, err := httputil.ParseID(c, "post_id", "invalid_post_id", "잘못된 게시글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_post_id", "잘못된 게시글 ID입니다"))
+		return nil
 	}
 
-	if err := h.service.RemovePostFromSeries(uint(seriesID), uint(postID), userID); err != nil {
+	if err := h.service.RemovePostFromSeries(seriesID, postID, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
 		}
@@ -352,9 +351,9 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 	}
 
-	seriesID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	seriesID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 시리즈 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 시리즈 ID입니다"))
+		return nil
 	}
 
 	var req dto.ReorderPostsRequest
@@ -365,7 +364,7 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
 	}
 
-	if err := h.service.ReorderPosts(uint(seriesID), req.PostIDs, userID); err != nil {
+	if err := h.service.ReorderPosts(seriesID, req.PostIDs, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
 		}
@@ -392,12 +391,12 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/series-nav [get]
 func (h *Handler) GetSeriesNavigation(c *fiber.Ctx) error {
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
+		return nil
 	}
 
-	nav, err := h.service.GetSeriesNavigation(uint(postID), httputil.OptionalUserID(c))
+	nav, err := h.service.GetSeriesNavigation(postID, httputil.OptionalUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 네비게이션 조회에 실패했습니다"))
 	}

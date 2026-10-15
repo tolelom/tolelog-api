@@ -2,7 +2,6 @@ package comment
 
 import (
 	"errors"
-	"strconv"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
@@ -39,9 +38,9 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
+		return nil
 	}
 
 	req, err := httputil.BindAndValidate[dto.CreateCommentRequest](c)
@@ -50,7 +49,7 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 	}
 
 	comment := &model.Comment{
-		PostID:   uint(postID),
+		PostID:   postID,
 		UserID:   userID,
 		Content:  req.Content,
 		ParentID: req.ParentID,
@@ -87,9 +86,9 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/comments [get]
 func (h *Handler) GetComments(c *fiber.Ctx) error {
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
+		return nil
 	}
 
 	limit := c.QueryInt("limit", 200)
@@ -97,7 +96,7 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 		limit = 200
 	}
 
-	comments, total, err := h.service.GetCommentsByPostID(uint(postID), httputil.OptionalUserID(c), limit)
+	comments, total, err := h.service.GetCommentsByPostID(postID, httputil.OptionalUserID(c), limit)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "게시글을 찾을 수 없습니다"))
@@ -142,14 +141,13 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	_, err = strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
+	if _, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다"); err != nil {
+		return nil
 	}
 
-	commentID, err := strconv.ParseUint(c.Params("comment_id"), 10, 32)
+	commentID, err := httputil.ParseID(c, "comment_id", "invalid_comment_id", "잘못된 댓글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_comment_id", "잘못된 댓글 ID입니다"))
+		return nil
 	}
 
 	req, err := httputil.BindAndValidate[dto.UpdateCommentRequest](c)
@@ -157,7 +155,7 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	comment, err := h.service.UpdateComment(uint(commentID), userID, req.Content)
+	comment, err := h.service.UpdateComment(commentID, userID, req.Content)
 	if err != nil {
 		if errors.Is(err, ErrCommentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("comment_not_found", "댓글을 찾을 수 없습니다"))
@@ -195,17 +193,16 @@ func (h *Handler) DeleteComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	_, err = strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 게시글 ID입니다"))
+	if _, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다"); err != nil {
+		return nil
 	}
 
-	commentID, err := strconv.ParseUint(c.Params("comment_id"), 10, 32)
+	commentID, err := httputil.ParseID(c, "comment_id", "invalid_comment_id", "잘못된 댓글 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_comment_id", "잘못된 댓글 ID입니다"))
+		return nil
 	}
 
-	if err := h.service.DeleteComment(uint(commentID), userID); err != nil {
+	if err := h.service.DeleteComment(commentID, userID); err != nil {
 		if errors.Is(err, ErrCommentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("comment_not_found", "댓글을 찾을 수 없습니다"))
 		}

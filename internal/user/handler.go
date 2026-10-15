@@ -3,8 +3,8 @@ package user
 import (
 	"errors"
 	"path/filepath"
-	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/upload"
 	"tolelom_api/internal/validate"
 
@@ -155,12 +155,12 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 // @Failure      500      {object}  dto.ErrorResponse
 // @Router       /users/{user_id} [get]
 func (h *Handler) GetProfile(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 64)
+	userID, err := httputil.ParseID(c, "user_id", "invalid_user_id", "유효하지 않은 사용자 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_user_id", "유효하지 않은 사용자 ID입니다"))
+		return nil
 	}
 
-	u, err := h.authService.GetUserByID(uint(userID))
+	u, err := h.authService.GetUserByID(userID)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("user_not_found", "사용자를 찾을 수 없습니다"))

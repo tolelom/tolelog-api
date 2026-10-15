@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"errors"
+	"strconv"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/validate"
 
@@ -48,6 +49,17 @@ func RequireAuth(c *fiber.Ctx) (uint, error) {
 		return 0, ErrResponseSent
 	}
 	return userID, nil
+}
+
+// ParseID parses a numeric path parameter as an ID.
+// On failure it sends a 400 response with the given error code and message and returns ErrResponseSent.
+func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
+	id, err := strconv.ParseUint(c.Params(param), 10, 32)
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse(code, message))
+		return 0, ErrResponseSent
+	}
+	return uint(id), nil
 }
 
 // OptionalUserID returns the authenticated userID set by OptionalAuthMiddleware, or nil for anonymous requests.

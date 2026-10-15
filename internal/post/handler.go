@@ -2,7 +2,6 @@ package post
 
 import (
 	"errors"
-	"strconv"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
@@ -75,9 +74,9 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [get]
 func (h *Handler) GetPost(c *fiber.Ctx) error {
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+		return nil
 	}
 
 	var currentUserID *uint
@@ -85,7 +84,7 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 		currentUserID = &uid
 	}
 
-	p, err := h.service.GetPostByID(uint(postID), currentUserID)
+	p, err := h.service.GetPostByID(postID, currentUserID)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
@@ -151,9 +150,9 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /users/{user_id}/posts [get]
 func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("user_id"), 10, 32)
+	userID, err := httputil.ParseID(c, "user_id", "invalid_user_id", "잘못된 사용자 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_user_id", "잘못된 사용자 ID입니다"))
+		return nil
 	}
 
 	page, pageSize := httputil.ParsePagination(c)
@@ -164,7 +163,7 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 		currentUserID = &uid
 	}
 
-	posts, total, err := h.service.GetUserPosts(uint(userID), currentUserID, page, pageSize, tag)
+	posts, total, err := h.service.GetUserPosts(userID, currentUserID, page, pageSize, tag)
 	if err != nil {
 		if errors.Is(err, ErrInvalidTag) {
 			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
@@ -248,9 +247,9 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 		return nil
 	}
 
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+		return nil
 	}
 
 	req, err := httputil.BindAndValidate[dto.UpdatePostRequest](c)
@@ -258,7 +257,7 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 		return nil
 	}
 
-	updatedPost, err := h.service.UpdatePost(uint(postID), userID, req)
+	updatedPost, err := h.service.UpdatePost(postID, userID, req)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
@@ -298,12 +297,12 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 		return nil
 	}
 
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+		return nil
 	}
 
-	if err := h.service.DeletePost(uint(postID), userID); err != nil {
+	if err := h.service.DeletePost(postID, userID); err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 		}
@@ -335,12 +334,12 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 		return nil
 	}
 
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+		return nil
 	}
 
-	liked, likeCount, err := h.service.ToggleLike(uint(postID), userID)
+	liked, likeCount, err := h.service.ToggleLike(postID, userID)
 	if errors.Is(err, ErrPostNotFound) {
 		return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 	}
@@ -369,14 +368,14 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/like [get]
 func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
-	postID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 ID입니다")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 ID입니다"))
+		return nil
 	}
 
 	liked := false
 	if userID, ok := c.Locals("userID").(uint); ok {
-		liked, err = h.service.IsLiked(uint(postID), userID)
+		liked, err = h.service.IsLiked(postID, userID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "좋아요 상태 조회에 실패했습니다"))
 		}
