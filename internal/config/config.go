@@ -28,7 +28,9 @@ type Config struct {
 	Port        string
 	Environment string
 	UploadDir   string
-	DB          *gorm.DB
+	// TrustedProxies 는 클라이언트 IP 헤더를 믿을 프록시 주소·대역이다(Traefik 이 있는 도커 네트워크).
+	TrustedProxies []string
+	DB             *gorm.DB
 }
 
 func LoadConfig() (*Config, error) {
@@ -53,15 +55,16 @@ func LoadConfig() (*Config, error) {
 	}
 
 	cfg := &Config{
-		DBHost:      getEnv("DB_HOST", "localhost"),
-		DBPort:      getEnv("DB_PORT", "3306"),
-		DBUser:      getEnv("DB_USER", "root"),
-		DBPassword:  getEnv("DB_PASSWORD", "root"),
-		DBName:      getEnv("DB_NAME", "blog"),
-		JWTSecret:   jwtSecret,
-		Port:        getEnv("PORT", "8080"),
-		Environment: environment,
-		UploadDir:   getEnv("UPLOAD_DIR", defaultUploadDir),
+		DBHost:         getEnv("DB_HOST", "localhost"),
+		DBPort:         getEnv("DB_PORT", "3306"),
+		DBUser:         getEnv("DB_USER", "root"),
+		DBPassword:     getEnv("DB_PASSWORD", "root"),
+		DBName:         getEnv("DB_NAME", "blog"),
+		JWTSecret:      jwtSecret,
+		Port:           getEnv("PORT", "8080"),
+		Environment:    environment,
+		UploadDir:      getEnv("UPLOAD_DIR", defaultUploadDir),
+		TrustedProxies: splitList(getEnv("TRUSTED_PROXIES", "172.16.0.0/12")),
 	}
 
 	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
@@ -183,4 +186,14 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func splitList(value string) []string {
+	var items []string
+	for _, item := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			items = append(items, trimmed)
+		}
+	}
+	return items
 }

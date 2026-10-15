@@ -15,7 +15,6 @@ import (
 	"os/signal"
 	"syscall"
 	"tolelom_api/internal/config"
-	"tolelom_api/internal/middleware"
 	"tolelom_api/internal/router"
 	"tolelom_api/internal/utils"
 
@@ -39,10 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := fiber.New(fiber.Config{
-		ErrorHandler: middleware.ErrorHandler,
-		BodyLimit:    5 * 1024 * 1024, // 5MB
-	})
+	app := fiber.New(router.AppConfig(cfg))
 	router.Setup(app, cfg)
 
 	// Graceful shutdown

@@ -77,6 +77,7 @@ Environment variables loaded from `.env` (see `.env_example`):
 | `JWT_SECRET` | (auto-generated in dev) | **Required** in production |
 | `ENVIRONMENT` | development | `development` or `production` |
 | `UPLOAD_DIR` | ./uploads/images | File storage path |
+| `TRUSTED_PROXIES` | 172.16.0.0/12 | Comma-separated proxies whose `CF-Connecting-IP` header is trusted for the client IP (rate limits, logs) |
 
 ## CI/CD
 

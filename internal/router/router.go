@@ -35,6 +35,19 @@ type ReadinessResponse struct {
 	Database string `json:"database" example:"ok"`
 }
 
+// AppConfig 는 Fiber 앱 설정이다. Cloudflare → cloudflared → Traefik 뒤에서 c.IP() 가 실제 클라이언트가 되도록,
+// 신뢰 프록시에서 온 요청만 CF-Connecting-IP 를 읽는다(헤더가 없거나 잘못되면 접속 주소를 쓴다).
+func AppConfig(cfg *config.Config) fiber.Config {
+	return fiber.Config{
+		ErrorHandler:            middleware.ErrorHandler,
+		BodyLimit:               5 * 1024 * 1024,
+		ProxyHeader:             "CF-Connecting-IP",
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          cfg.TrustedProxies,
+		EnableIPValidation:      true,
+	}
+}
+
 // Setup wires middleware, services, and routes.
 func Setup(app *fiber.App, cfg *config.Config) {
 	// Panic recovery: 모든 미들웨어/핸들러의 panic을 복구해야 하므로 가장 먼저 등록
