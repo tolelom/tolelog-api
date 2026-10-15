@@ -255,7 +255,9 @@ func TestIsLiked_DBError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sqlDB.Close()
+	if err := sqlDB.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := svc.IsLiked(1, 1); err == nil {
 		t.Fatal("닫힌 DB에서 IsLiked가 오류를 내지 않았다")

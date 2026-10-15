@@ -23,7 +23,8 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          # latest 는 새 릴리스가 나오는 날 코드 변경 없이 main CI 를 깨뜨릴 수 있어 고정한다.
+          version: v2.14.0
 
   test:
     runs-on: ubuntu-latest

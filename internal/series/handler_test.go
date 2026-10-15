@@ -313,7 +313,9 @@ func TestUpdateSeries_Handler_Success(t *testing.T) {
 			PostCount int `json:"post_count"`
 		} `json:"data"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if result.Data.PostCount != 7 {
 		t.Errorf("post_count = %d, want 7 (수정 응답의 글 수가 0 으로 나가면 안 된다)", result.Data.PostCount)
 	}
