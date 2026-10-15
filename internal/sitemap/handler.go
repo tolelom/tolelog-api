@@ -37,6 +37,7 @@ type Entry struct {
 type Repository interface {
 	GetPublicPostEntries() ([]Entry, error)
 	GetSeriesEntries() ([]Entry, error)
+	GetPublicAuthorEntries() ([]Entry, error)
 }
 
 type Handler struct {
@@ -79,6 +80,17 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		urls = append(urls, siteURL_{
 			Loc:     fmt.Sprintf("%s/series/%d", siteURL, s.ID),
 			LastMod: s.UpdatedAt.Format(time.DateOnly),
+		})
+	}
+
+	authors, err := h.repo.GetPublicAuthorEntries()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
+	}
+	for _, a := range authors {
+		urls = append(urls, siteURL_{
+			Loc:     fmt.Sprintf("%s/user/%d", siteURL, a.ID),
+			LastMod: a.UpdatedAt.Format(time.DateOnly),
 		})
 	}
 
