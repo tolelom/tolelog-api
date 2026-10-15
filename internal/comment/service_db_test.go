@@ -2,7 +2,9 @@ package comment
 
 import (
 	"errors"
+	"slices"
 	"testing"
+	"time"
 
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/testutil"
@@ -110,4 +112,133 @@ func TestUpdateComment_AuthorOnly(t *testing.T) {
 			t.Fatalf("content=%q isEdited=%v, want 수정본/true", updated.Content, updated.IsEdited)
 		}
 	})
+}
+
+func TestCreateComment_Replies(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	author := testutil.MakeUser(t, db, "author")
+	reader := testutil.MakeUser(t, db, "reader")
+	post := testutil.MakePost(t, db, author.ID)
+	otherPost := testutil.MakePost(t, db, author.ID)
+	parent := testutil.MakeComment(t, db, post.ID, author.ID, "원 댓글")
+	elsewhere := testutil.MakeComment(t, db, otherPost.ID, author.ID, "다른 글 댓글")
+
+	t.Run("같은 글의 댓글에 답글을 달고 작성자를 싣는다", func(t *testing.T) {
+		c := &model.Comment{PostID: post.ID, UserID: reader.ID, ParentID: &parent.ID, Content: "답글"}
+		if err := svc.CreateComment(c); err != nil {
+			t.Fatalf("CreateComment: %v", err)
+		}
+		if c.User.Username != "reader" {
+			t.Fatalf("User.Username = %q, want reader", c.User.Username)
+		}
+	})
+
+	t.Run("다른 글의 댓글에는 답글을 달 수 없다", func(t *testing.T) {
+		c := &model.Comment{PostID: post.ID, UserID: reader.ID, ParentID: &elsewhere.ID, Content: "엇갈린 답글"}
+		if err := svc.CreateComment(c); !errors.Is(err, ErrParentNotFound) {
+			t.Fatalf("err = %v, want ErrParentNotFound", err)
+		}
+	})
+
+	t.Run("지워진 댓글에는 답글을 달 수 없다", func(t *testing.T) {
+		gone := testutil.MakeComment(t, db, post.ID, author.ID, "지울 댓글")
+		db.Delete(&model.Comment{}, gone.ID)
+		c := &model.Comment{PostID: post.ID, UserID: reader.ID, ParentID: &gone.ID, Content: "늦은 답글"}
+		if err := svc.CreateComment(c); !errors.Is(err, ErrParentNotFound) {
+			t.Fatalf("err = %v, want ErrParentNotFound", err)
+		}
+	})
+
+	t.Run("지워진 글과 초안에는 댓글을 달 수 없다", func(t *testing.T) {
+		gonePost := testutil.MakePost(t, db, author.ID)
+		db.Delete(&model.Post{}, gonePost.ID)
+		draft := testutil.MakePost(t, db, author.ID, testutil.WithStatus("draft"))
+		if err := svc.CreateComment(&model.Comment{PostID: gonePost.ID, UserID: reader.ID, Content: "x"}); !errors.Is(err, ErrPostNotFound) {
+			t.Fatalf("지워진 글 err = %v, want ErrPostNotFound", err)
+		}
+		if err := svc.CreateComment(&model.Comment{PostID: draft.ID, UserID: reader.ID, Content: "x"}); !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("초안 err = %v, want ErrUnauthorized", err)
+		}
+	})
+}
+
+func TestGetCommentsByPostID(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	author := testutil.MakeUser(t, db, "author")
+	reader := testutil.MakeUser(t, db, "reader")
+	post := testutil.MakePost(t, db, author.ID)
+	other := testutil.MakePost(t, db, author.ID)
+	base := time.Now().Add(-time.Hour)
+	var want []uint
+	for i, content := range []string{"첫째", "둘째", "셋째"} {
+		c := testutil.MakeComment(t, db, post.ID, reader.ID, content)
+		db.Model(c).UpdateColumn("created_at", base.Add(time.Duration(i)*time.Minute))
+		want = append(want, c.ID)
+	}
+	gone := testutil.MakeComment(t, db, post.ID, reader.ID, "지운 댓글")
+	db.Delete(&model.Comment{}, gone.ID)
+	testutil.MakeComment(t, db, other.ID, reader.ID, "다른 글 댓글")
+
+	ids := func(comments []model.Comment) []uint {
+		out := make([]uint, len(comments))
+		for i, c := range comments {
+			out[i] = c.ID
+		}
+		return out
+	}
+
+	t.Run("이 글의 살아 있는 댓글을 오래된 순으로", func(t *testing.T) {
+		comments, total, err := svc.GetCommentsByPostID(post.ID, nil, 50)
+		if err != nil {
+			t.Fatalf("GetCommentsByPostID: %v", err)
+		}
+		if total != 3 || !slices.Equal(ids(comments), want) {
+			t.Fatalf("total=%d comments=%v, want 3 %v", total, ids(comments), want)
+		}
+		if comments[0].User.Username != "reader" {
+			t.Fatal("댓글 작성자가 실리지 않았다")
+		}
+	})
+
+	t.Run("limit 은 개수만 자르고 total 은 전체 수", func(t *testing.T) {
+		comments, total, err := svc.GetCommentsByPostID(post.ID, nil, 2)
+		if err != nil {
+			t.Fatalf("GetCommentsByPostID: %v", err)
+		}
+		if total != 3 || !slices.Equal(ids(comments), want[:2]) {
+			t.Fatalf("total=%d comments=%v, want 3 %v", total, ids(comments), want[:2])
+		}
+	})
+
+	t.Run("숨은 글의 댓글은 작성자에게만", func(t *testing.T) {
+		db.Model(post).UpdateColumn("is_public", false)
+		defer db.Model(post).UpdateColumn("is_public", true)
+		if _, _, err := svc.GetCommentsByPostID(post.ID, &reader.ID, 50); !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("다른 사용자 err = %v, want ErrUnauthorized", err)
+		}
+		if _, total, err := svc.GetCommentsByPostID(post.ID, &author.ID, 50); err != nil || total != 3 {
+			t.Fatalf("작성자 total=%d err=%v, want 3, nil", total, err)
+		}
+	})
+
+	t.Run("없는 글", func(t *testing.T) {
+		if _, _, err := svc.GetCommentsByPostID(9999, nil, 50); !errors.Is(err, ErrPostNotFound) {
+			t.Fatalf("err = %v, want ErrPostNotFound", err)
+		}
+	})
+}
+
+func TestUpdateAndDeleteComment_Missing(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	user := testutil.MakeUser(t, db, "user")
+
+	if _, err := svc.UpdateComment(9999, user.ID, "x"); !errors.Is(err, ErrCommentNotFound) {
+		t.Fatalf("Update err = %v, want ErrCommentNotFound", err)
+	}
+	if err := svc.DeleteComment(9999, user.ID); !errors.Is(err, ErrCommentNotFound) {
+		t.Fatalf("Delete err = %v, want ErrCommentNotFound", err)
+	}
 }
