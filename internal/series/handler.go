@@ -173,9 +173,14 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "시리즈 수정에 실패했습니다"))
 	}
 
+	postCount, err := h.service.CountPostsInSeries(series.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "시리즈 수정에 실패했습니다"))
+	}
+
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   dto.SeriesToResponse(series, 0),
+		Data:   dto.SeriesToResponse(series, int(postCount)),
 	})
 }
 

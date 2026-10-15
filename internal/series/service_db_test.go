@@ -581,3 +581,18 @@ func TestGetSeriesByUserID_CountsOnlyPostsTheViewerCanSee(t *testing.T) {
 		})
 	}
 }
+
+func TestSeriesReads_ReportDatabaseErrors(t *testing.T) {
+	db := testutil.SetupDB(t)
+	owner := testutil.MakeUser(t, db, "owner")
+	s := makeSeries(t, db, owner.ID, "시리즈")
+	p := testutil.MakePost(t, db, owner.ID)
+	svc := NewService(db)
+	addPosts(t, svc, s.ID, owner.ID, p)
+	sqlDB, _ := db.DB()
+	sqlDB.Close()
+
+	if nav, err := svc.GetSeriesNavigation(p.ID, &owner.ID); err == nil {
+		t.Fatalf("nav=%+v err=nil, want DB 오류 (장애를 '시리즈 없음' 200 으로 숨기면 안 된다)", nav)
+	}
+}

@@ -541,3 +541,21 @@ func TestToggleLike_OnlyPostsTheUserCanSee(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdatePost_ResponseKeepsSeries(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	owner := testutil.MakeUser(t, db, "owner")
+	p := testutil.MakePost(t, db, owner.ID)
+	s := model.Series{Title: "C 언어 기초", UserID: owner.ID}
+	db.Create(&s)
+	db.Model(p).Updates(map[string]interface{}{"series_id": s.ID, "series_order": 1})
+
+	got, err := svc.UpdatePost(p.ID, owner.ID, &dto.UpdatePostRequest{Title: strPtr("새 제목")})
+	if err != nil {
+		t.Fatalf("UpdatePost: %v", err)
+	}
+	if got.Series == nil || got.Series.Title != "C 언어 기초" {
+		t.Fatalf("Series = %+v, want C 언어 기초 (수정 응답에서 시리즈 정보가 빠지면 안 된다)", got.Series)
+	}
+}

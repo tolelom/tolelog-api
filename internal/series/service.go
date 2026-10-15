@@ -63,9 +63,11 @@ func (s *service) GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, [
 	}
 
 	var posts []model.Post
-	s.seriesPostsVisibleTo(&series, viewerID).
+	if err := s.seriesPostsVisibleTo(&series, viewerID).
 		Order("series_order ASC, created_at ASC").
-		Find(&posts)
+		Find(&posts).Error; err != nil {
+		return nil, nil, err
+	}
 
 	return &series, posts, nil
 }
@@ -132,7 +134,9 @@ func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeries
 		return nil, err
 	}
 
-	s.db.Preload("User").First(&series, series.ID)
+	if err := s.db.Preload("User").First(&series, series.ID).Error; err != nil {
+		return nil, err
+	}
 	return &series, nil
 }
 
@@ -151,8 +155,10 @@ func (s *service) DeleteSeries(seriesID uint, userID uint) error {
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 소속 글들의 series_id, series_order를 null로
-		tx.Model(&model.Post{}).Where("series_id = ?", seriesID).
-			Updates(map[string]interface{}{"series_id": nil, "series_order": nil})
+		if err := tx.Model(&model.Post{}).Where("series_id = ?", seriesID).
+			Updates(map[string]interface{}{"series_id": nil, "series_order": nil}).Error; err != nil {
+			return err
+		}
 		return tx.Delete(&series).Error
 	})
 }
@@ -252,8 +258,11 @@ func (s *service) CountPostsInSeries(seriesID uint) (int64, error) {
 
 func (s *service) GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesNavResponse, error) {
 	var post model.Post
-	if err := s.db.Where("id = ? AND deleted_at IS NULL", postID).First(&post).Error; err != nil {
-		return nil, nil // 글이 없으면 nil 반환 (에러 아님)
+	if err := s.db.First(&post, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // 글이 없으면 nil 반환 (에러 아님)
+		}
+		return nil, err
 	}
 	if !post.VisibleTo(viewerID) {
 		return nil, nil // 볼 수 없는 글은 시리즈 소속도 드러내지 않는다
@@ -265,14 +274,19 @@ func (s *service) GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesN
 
 	var series model.Series
 	if err := s.db.First(&series, *post.SeriesID).Error; err != nil {
-		return nil, nil
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
 	}
 
 	var posts []model.Post
-	s.seriesPostsVisibleTo(&series, viewerID).
+	if err := s.seriesPostsVisibleTo(&series, viewerID).
 		Select("id, title, series_order").
 		Order("series_order ASC, created_at ASC").
-		Find(&posts)
+		Find(&posts).Error; err != nil {
+		return nil, err
+	}
 
 	currentOrder := 0
 	if post.SeriesOrder != nil {

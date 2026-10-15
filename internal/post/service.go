@@ -82,7 +82,7 @@ func (s *service) CreatePost(post *model.Post) error {
 			}
 		}
 		// Reload with User and Tags
-		if err := tx.Preload("User").Preload("Tags").First(post, post.ID).Error; err != nil {
+		if err := tx.Preload("User").Preload("Tags").Preload("Series").First(post, post.ID).Error; err != nil {
 			return err
 		}
 		return nil
@@ -160,7 +160,7 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 		}
 
 		// Reload with User and Tags
-		if err := tx.Preload("User").Preload("Tags").First(&post, postID).Error; err != nil {
+		if err := tx.Preload("User").Preload("Tags").Preload("Series").First(&post, postID).Error; err != nil {
 			return err
 		}
 

@@ -293,6 +293,7 @@ func TestUpdateSeries_Handler_Success(t *testing.T) {
 		updateSeriesFn: func(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error) {
 			return &model.Series{ID: seriesID, Title: "Updated", UserID: userID, User: model.User{Username: "u"}}, nil
 		},
+		countPostsInSeriesFn: func(seriesID uint) (int64, error) { return 7, nil },
 	}
 	app := setupAuthApp(ms, 1)
 
@@ -306,6 +307,15 @@ func TestUpdateSeries_Handler_Success(t *testing.T) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+	var result struct {
+		Data struct {
+			PostCount int `json:"post_count"`
+		} `json:"data"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	if result.Data.PostCount != 7 {
+		t.Errorf("post_count = %d, want 7 (수정 응답의 글 수가 0 으로 나가면 안 된다)", result.Data.PostCount)
 	}
 }
 
