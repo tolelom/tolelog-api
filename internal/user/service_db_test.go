@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/model"
 	"tolelom_api/internal/testutil"
 )
 
@@ -236,5 +237,52 @@ func TestGetUserByIDAndUpdateAvatar(t *testing.T) {
 	}
 	if _, err := svc.GetUserByID(9999); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("err = %v, want ErrUserNotFound", err)
+	}
+}
+
+// MySQL 은 외래 키를 늘 검사하지만 SQLite 는 켜야 한다. 탈퇴는 글·시리즈·댓글을 연쇄로 지우므로 켜고 확인한다.
+func TestDeleteUser_RemovesEverythingTheUserLeftBehind(t *testing.T) {
+	db := testutil.SetupDB(t)
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		t.Fatal(err)
+	}
+	svc := NewAuthService(db, testJWTSecret)
+	leaver := testutil.MakeUser(t, db, "leaver")
+	reader := testutil.MakeUser(t, db, "reader")
+
+	own := testutil.MakePost(t, db, leaver.ID)
+	tag := model.Tag{Name: "go"}
+	db.Create(&tag)
+	if err := db.Model(own).Association("Tags").Append(&tag); err != nil {
+		t.Fatal(err)
+	}
+	testutil.MakeComment(t, db, own.ID, reader.ID, "남의 글에 단 댓글")
+	db.Create(&model.PostLike{PostID: own.ID, UserID: reader.ID})
+
+	readersPost := testutil.MakePost(t, db, reader.ID)
+	db.Create(&model.PostLike{PostID: readersPost.ID, UserID: leaver.ID})
+	db.Model(readersPost).UpdateColumn("like_count", 1)
+
+	if err := svc.DeleteUser(leaver.ID); err != nil {
+		t.Fatalf("태그 붙은 글이 있는 사용자 탈퇴 실패: %v", err)
+	}
+
+	if _, err := svc.GetUserByID(leaver.ID); !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("탈퇴 뒤 사용자 조회 err = %v, want ErrUserNotFound", err)
+	}
+	var likes int64
+	db.Model(&model.PostLike{}).Count(&likes)
+	if likes != 0 {
+		t.Fatalf("좋아요 %d 개가 남았다 (탈퇴자가 누른 것·탈퇴자 글에 달린 것 모두 지워야 한다)", likes)
+	}
+	var reloaded model.Post
+	db.First(&reloaded, readersPost.ID)
+	if reloaded.LikeCount != 0 {
+		t.Fatalf("남의 글 like_count = %d, want 0 (탈퇴자의 좋아요를 빼야 한다)", reloaded.LikeCount)
+	}
+	var tagRows int64
+	db.Table("post_tags").Count(&tagRows)
+	if tagRows != 0 {
+		t.Fatalf("post_tags %d 행이 남았다", tagRows)
 	}
 }

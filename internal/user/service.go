@@ -157,11 +157,23 @@ func (s *authService) Logout(userID uint) error {
 	return s.db.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("token_version", gorm.Expr("token_version + 1")).Error
 }
 
+// DeleteUser 는 사용자를 지운다. 글·시리즈·댓글은 외래 키 CASCADE 로 함께 지워지지만, post_tags 는 글을 막고
+// post_likes 에는 외래 키가 없어 먼저 정리한다.
 func (s *authService) DeleteUser(userID uint) error {
-	if err := s.db.Delete(&model.User{}, userID).Error; err != nil {
-		return err
-	}
-	return nil
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		ownPostIDs := tx.Unscoped().Model(&model.Post{}).Select("id").Where("user_id = ?", userID)
+
+		if err := tx.Exec("UPDATE posts SET like_count = like_count - 1 WHERE like_count > 0 AND id IN (SELECT post_id FROM post_likes WHERE user_id = ?)", userID).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("user_id = ? OR post_id IN (?)", userID, ownPostIDs).Delete(&model.PostLike{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM post_tags WHERE post_id IN (?)", ownPostIDs).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.User{}, userID).Error
+	})
 }
 
 // ChangePassword 는 token_version 을 올려 다른 기기의 리프레시 토큰을 끊고, 바꾼 기기에는 새 토큰 쌍을 준다.
