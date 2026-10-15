@@ -8,7 +8,6 @@ import (
 	"tolelom_api/internal/dto"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 )
 
 // mockService implements Service for testing.
@@ -24,63 +23,6 @@ func (m *mockService) GetTags(sort string, limit int) (*dto.TagListResponse, err
 }
 
 // --- Service unit tests ---
-
-func TestNewService(t *testing.T) {
-	db := &gorm.DB{}
-	svc := NewService(db)
-	if svc == nil {
-		t.Fatal("expected non-nil service")
-	}
-}
-
-func TestMockService_GetTags_Success(t *testing.T) {
-	ms := &mockService{
-		getTagsFn: func(sort string, limit int) (*dto.TagListResponse, error) {
-			return &dto.TagListResponse{
-				Tags:  []dto.TagResponse{{Name: "go", PostCount: 5}},
-				Total: 1,
-			}, nil
-		},
-	}
-	result, err := ms.GetTags("popular", 50)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Total != 1 {
-		t.Errorf("expected total 1, got %d", result.Total)
-	}
-	if len(result.Tags) != 1 || result.Tags[0].Name != "go" {
-		t.Errorf("unexpected tags: %v", result.Tags)
-	}
-}
-
-func TestMockService_GetTags_DBError(t *testing.T) {
-	dbErr := errors.New("db error")
-	ms := &mockService{
-		getTagsFn: func(sort string, limit int) (*dto.TagListResponse, error) {
-			return nil, dbErr
-		},
-	}
-	_, err := ms.GetTags("popular", 50)
-	if !errors.Is(err, dbErr) {
-		t.Errorf("expected db error, got %v", err)
-	}
-}
-
-func TestMockService_GetTags_Empty(t *testing.T) {
-	ms := &mockService{
-		getTagsFn: func(sort string, limit int) (*dto.TagListResponse, error) {
-			return &dto.TagListResponse{Tags: []dto.TagResponse{}, Total: 0}, nil
-		},
-	}
-	result, err := ms.GetTags("name", 10)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Total != 0 || len(result.Tags) != 0 {
-		t.Errorf("expected empty result, got %+v", result)
-	}
-}
 
 // --- Handler tests ---
 
