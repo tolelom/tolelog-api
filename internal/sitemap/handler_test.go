@@ -14,8 +14,9 @@ import (
 
 // mockRepo implements Repository for testing.
 type mockRepo struct {
-	postsFn  func() ([]Entry, error)
-	seriesFn func() ([]Entry, error)
+	postsFn   func() ([]Entry, error)
+	seriesFn  func() ([]Entry, error)
+	authorsFn func() ([]Entry, error)
 }
 
 func (m *mockRepo) GetPublicPostEntries() ([]Entry, error) {
@@ -32,6 +33,13 @@ func (m *mockRepo) GetSeriesEntries() ([]Entry, error) {
 	return nil, nil
 }
 
+func (m *mockRepo) GetPublicAuthorEntries() ([]Entry, error) {
+	if m.authorsFn != nil {
+		return m.authorsFn()
+	}
+	return nil, nil
+}
+
 func setupSitemapApp(repo Repository) *fiber.App {
 	app := fiber.New()
 	h := NewHandler(repo)
@@ -42,8 +50,9 @@ func setupSitemapApp(repo Repository) *fiber.App {
 func TestSitemap_Success(t *testing.T) {
 	now := time.Date(2026, 3, 21, 0, 0, 0, 0, time.UTC)
 	repo := &mockRepo{
-		postsFn:  func() ([]Entry, error) { return []Entry{{ID: 1, Title: "Hello World", UpdatedAt: now}}, nil },
-		seriesFn: func() ([]Entry, error) { return []Entry{{ID: 2, UpdatedAt: now}}, nil },
+		postsFn:   func() ([]Entry, error) { return []Entry{{ID: 1, Title: "Hello World", UpdatedAt: now}}, nil },
+		seriesFn:  func() ([]Entry, error) { return []Entry{{ID: 2, UpdatedAt: now}}, nil },
+		authorsFn: func() ([]Entry, error) { return []Entry{{ID: 7, UpdatedAt: now}}, nil },
 	}
 	app := setupSitemapApp(repo)
 
@@ -64,6 +73,9 @@ func TestSitemap_Success(t *testing.T) {
 	}
 	if !containsStr(xmlStr, "https://blog.tolelom.xyz/series/2") {
 		t.Error("missing series URL in sitemap")
+	}
+	if !containsStr(xmlStr, "https://blog.tolelom.xyz/user/7") {
+		t.Error("missing author profile URL in sitemap")
 	}
 }
 
