@@ -35,7 +35,8 @@ func (s *service) GetTags(sort string, limit int) (*dto.TagListResponse, error) 
 		Select("tags.name, COUNT(DISTINCT post_tags.post_id) as post_count").
 		Joins("JOIN post_tags ON post_tags.tag_id = tags.id").
 		Joins("JOIN posts ON posts.id = post_tags.post_id").
-		Where("posts.is_public = ? AND posts.status = ? AND posts.deleted_at IS NULL", true, model.PostStatusPublished).
+		Scopes(model.PublicPosts).
+		Where("posts.deleted_at IS NULL").
 		Group("tags.id").
 		Order(orderClause).
 		Limit(limit).

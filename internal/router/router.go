@@ -254,6 +254,6 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	users.Put("/password", middleware.AuthMiddleware(cfg), userHandler.ChangePassword) // 비밀번호 변경 (인증 필요)
 	users.Put("/avatar", middleware.AuthMiddleware(cfg), userHandler.UploadAvatar)     // 프로필 이미지 업로드 (인증 필요)
 	users.Get("/:user_id", readLimiter, userHandler.GetProfile)                    // 사용자 프로필
-	users.Get("/:user_id/series", readLimiter, seriesHandler.GetUserSeries)       // 사용자 시리즈 목록
+	users.Get("/:user_id/series", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetUserSeries)       // 사용자 시리즈 목록
 	users.Get("/:user_id/posts", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts) // 사용자 글 목록 (선택적 인증)
 }

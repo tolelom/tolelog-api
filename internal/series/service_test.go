@@ -33,7 +33,7 @@ func (m *mockService) GetSeriesByID(seriesID uint, _ *uint) (*model.Series, []mo
 	return nil, nil, nil
 }
 
-func (m *mockService) GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error) {
+func (m *mockService) GetSeriesByUserID(userID uint, _ *uint) ([]model.Series, map[uint]int64, error) {
 	if m.getSeriesByUserIDFn != nil {
 		return m.getSeriesByUserIDFn(userID)
 	}

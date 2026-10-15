@@ -120,7 +120,7 @@ func TestGetSeriesByUserID_CountsLivePostsPerSeries(t *testing.T) {
 		t.Fatalf("soft delete: %v", err)
 	}
 
-	list, counts, err := svc.GetSeriesByUserID(owner.ID)
+	list, counts, err := svc.GetSeriesByUserID(owner.ID, &owner.ID)
 	if err != nil {
 		t.Fatalf("GetSeriesByUserID: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestGetSeriesByUserID_NoSeries(t *testing.T) {
 	db := testutil.SetupDB(t)
 	owner := testutil.MakeUser(t, db, "owner")
 
-	list, counts, err := NewService(db).GetSeriesByUserID(owner.ID)
+	list, counts, err := NewService(db).GetSeriesByUserID(owner.ID, &owner.ID)
 	if err != nil {
 		t.Fatalf("GetSeriesByUserID: %v", err)
 	}
@@ -543,6 +543,40 @@ func TestSeries_HidesPrivateAndDraftPostsFromNonOwners(t *testing.T) {
 			nav, err := svc.GetSeriesNavigation(hidden.ID, &stranger.ID)
 			if err != nil || nav != nil {
 				t.Fatalf("nav=%+v err=%v, want nil, nil", nav, err)
+			}
+		})
+	}
+}
+
+func TestGetSeriesByUserID_CountsOnlyPostsTheViewerCanSee(t *testing.T) {
+	db := testutil.SetupDB(t)
+	owner := testutil.MakeUser(t, db, "owner")
+	stranger := testutil.MakeUser(t, db, "stranger")
+	s := makeSeries(t, db, owner.ID, "시리즈")
+	svc := NewService(db)
+	addPosts(t, svc, s.ID, owner.ID,
+		testutil.MakePost(t, db, owner.ID),
+		testutil.MakePost(t, db, owner.ID, testutil.WithPrivate()),
+		testutil.MakePost(t, db, owner.ID, testutil.WithStatus("draft")),
+	)
+
+	cases := []struct {
+		name     string
+		viewerID *uint
+		want     int64
+	}{
+		{"익명", nil, 1},
+		{"다른 사용자", &stranger.ID, 1},
+		{"작성자", &owner.ID, 3},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, counts, err := svc.GetSeriesByUserID(owner.ID, c.viewerID)
+			if err != nil {
+				t.Fatalf("GetSeriesByUserID: %v", err)
+			}
+			if counts[s.ID] != c.want {
+				t.Fatalf("글 수 = %d, want %d (숨은 글은 작성자에게만 센다)", counts[s.ID], c.want)
 			}
 		})
 	}

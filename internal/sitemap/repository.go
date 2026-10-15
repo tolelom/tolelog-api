@@ -18,7 +18,7 @@ func (r *gormRepository) GetPublicPostEntries() ([]Entry, error) {
 	var rows []Entry
 	err := r.db.Model(&model.Post{}).
 		Select("id, title, updated_at").
-		Where("is_public = ? AND deleted_at IS NULL AND status = ?", true, model.PostStatusPublished).
+		Scopes(model.PublicPosts).
 		Order("updated_at DESC").
 		Find(&rows).Error
 	return rows, err
@@ -29,7 +29,7 @@ func (r *gormRepository) GetPublicAuthorEntries() ([]Entry, error) {
 	var posts []Entry
 	err := r.db.Model(&model.Post{}).
 		Select("user_id AS id, updated_at").
-		Where("is_public = ? AND deleted_at IS NULL AND status = ?", true, "published").
+		Scopes(model.PublicPosts).
 		Order("updated_at DESC").
 		Find(&posts).Error
 	if err != nil {

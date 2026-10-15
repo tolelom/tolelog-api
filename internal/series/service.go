@@ -18,7 +18,7 @@ var (
 type Service interface {
 	CreateSeries(series *model.Series) error
 	GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, []model.Post, error)
-	GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error)
+	GetSeriesByUserID(userID uint, viewerID *uint) ([]model.Series, map[uint]int64, error)
 	UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error)
 	DeleteSeries(seriesID uint, userID uint) error
 	AddPostToSeries(seriesID uint, postID uint, order int, userID uint) error
@@ -48,7 +48,7 @@ func (s *service) CreateSeries(series *model.Series) error {
 func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
 	query := s.db.Where("series_id = ? AND deleted_at IS NULL", series.ID)
 	if viewerID == nil || *viewerID != series.UserID {
-		query = query.Where("is_public = ? AND status = ?", true, model.PostStatusPublished)
+		query = query.Scopes(model.PublicPosts)
 	}
 	return query
 }
@@ -70,7 +70,8 @@ func (s *service) GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, [
 	return &series, posts, nil
 }
 
-func (s *service) GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64, error) {
+// GetSeriesByUserID 의 글 수는 보는 사람이 볼 수 있는 글만 센다(작성자는 전부).
+func (s *service) GetSeriesByUserID(userID uint, viewerID *uint) ([]model.Series, map[uint]int64, error) {
 	var seriesList []model.Series
 	if err := s.db.Preload("User").Where("user_id = ?", userID).
 		Order("created_at DESC").Find(&seriesList).Error; err != nil {
@@ -90,11 +91,13 @@ func (s *service) GetSeriesByUserID(userID uint) ([]model.Series, map[uint]int64
 			Count    int64
 		}
 		var results []countResult
-		if err := s.db.Model(&model.Post{}).
+		query := s.db.Model(&model.Post{}).
 			Select("series_id, COUNT(*) as count").
-			Where("series_id IN ? AND deleted_at IS NULL", seriesIDs).
-			Group("series_id").
-			Find(&results).Error; err != nil {
+			Where("series_id IN ?", seriesIDs)
+		if viewerID == nil || *viewerID != userID {
+			query = query.Scopes(model.PublicPosts)
+		}
+		if err := query.Group("series_id").Find(&results).Error; err != nil {
 			return nil, nil, err
 		}
 		for _, r := range results {

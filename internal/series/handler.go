@@ -110,7 +110,7 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_id", "잘못된 사용자 ID입니다"))
 	}
 
-	seriesList, postCounts, err := h.service.GetSeriesByUserID(uint(userID))
+	seriesList, postCounts, err := h.service.GetSeriesByUserID(uint(userID), httputil.OptionalUserID(c))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 목록 조회에 실패했습니다"))
 	}

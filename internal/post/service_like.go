@@ -9,6 +9,18 @@ import (
 
 // ToggleLike toggles a like for a post. Returns the new liked state and total like count.
 func (s *service) ToggleLike(postID uint, userID uint) (bool, uint, error) {
+	var target model.Post
+	if err := s.db.Select("id, user_id, is_public, status").First(&target, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, 0, ErrPostNotFound
+		}
+		return false, 0, err
+	}
+	// 볼 수 없는 글은 없는 글과 같게 다뤄 존재를 드러내지 않는다.
+	if !target.VisibleTo(&userID) {
+		return false, 0, ErrPostNotFound
+	}
+
 	var liked bool
 	var likeCount uint
 

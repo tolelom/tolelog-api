@@ -33,3 +33,8 @@ func (p *Post) VisibleTo(userID *uint) bool {
 	}
 	return p.IsPublic && p.Status == PostStatusPublished
 }
+
+// PublicPosts 는 누구에게나 보이는 글(공개 + 발행)만 남기는 scope 다. VisibleTo 와 같은 기준이다.
+func PublicPosts(db *gorm.DB) *gorm.DB {
+	return db.Where("posts.is_public = ? AND posts.status = ?", true, PostStatusPublished)
+}

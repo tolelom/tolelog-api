@@ -341,6 +341,9 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 	}
 
 	liked, likeCount, err := h.service.ToggleLike(uint(postID), userID)
+	if errors.Is(err, ErrPostNotFound) {
+		return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("like_failed", "좋아요 처리에 실패했습니다"))
 	}

@@ -511,3 +511,33 @@ func TestSearchPosts(t *testing.T) {
 		t.Fatalf("2쪽: total=%d posts=%v, want 2 [%d]", total, postIDs(posts), byTitle.ID)
 	}
 }
+
+func TestToggleLike_OnlyPostsTheUserCanSee(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	author := testutil.MakeUser(t, db, "author")
+	fan := testutil.MakeUser(t, db, "fan")
+	private := testutil.MakePost(t, db, author.ID, testutil.WithPrivate())
+	draft := testutil.MakePost(t, db, author.ID, testutil.WithStatus("draft"))
+
+	for name, id := range map[string]uint{"비공개 글": private.ID, "초안": draft.ID, "없는 글": 9999} {
+		t.Run(name+"에는 좋아요를 누를 수 없다", func(t *testing.T) {
+			if _, _, err := svc.ToggleLike(id, fan.ID); !errors.Is(err, ErrPostNotFound) {
+				t.Fatalf("err = %v, want ErrPostNotFound (글이 있는지도 드러내지 않는다)", err)
+			}
+		})
+	}
+	var likes int64
+	db.Model(&model.PostLike{}).Count(&likes)
+	var reloaded model.Post
+	db.First(&reloaded, private.ID)
+	if likes != 0 || reloaded.LikeCount != 0 {
+		t.Fatalf("likes=%d like_count=%d, want 0/0", likes, reloaded.LikeCount)
+	}
+
+	t.Run("작성자는 자기 비공개 글에 누를 수 있다", func(t *testing.T) {
+		if _, count, err := svc.ToggleLike(private.ID, author.ID); err != nil || count != 1 {
+			t.Fatalf("count=%d err=%v, want 1, nil", count, err)
+		}
+	})
+}
