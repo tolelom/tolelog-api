@@ -2,7 +2,12 @@ package post
 
 import (
 	"errors"
+	"slices"
+	"sort"
 	"testing"
+	"time"
+
+	"gorm.io/gorm"
 
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
@@ -254,5 +259,255 @@ func TestIsLiked_DBError(t *testing.T) {
 
 	if _, err := svc.IsLiked(1, 1); err == nil {
 		t.Fatal("닫힌 DB에서 IsLiked가 오류를 내지 않았다")
+	}
+}
+
+func tagNames(p *model.Post) []string {
+	names := make([]string, len(p.Tags))
+	for i, tag := range p.Tags {
+		names[i] = tag.Name
+	}
+	sort.Strings(names)
+	return names
+}
+
+func postIDs(posts []model.Post) []uint {
+	ids := make([]uint, len(posts))
+	for i, p := range posts {
+		ids[i] = p.ID
+	}
+	return ids
+}
+
+// makePostAt 은 created_at 을 정해 목록 정렬을 결정적으로 만든다.
+func makePostAt(t *testing.T, db *gorm.DB, userID uint, minutesAgo int, opts ...testutil.PostOpt) *model.Post {
+	t.Helper()
+	p := testutil.MakePost(t, db, userID, opts...)
+	at := time.Now().Add(-time.Duration(minutesAgo) * time.Minute)
+	if err := db.Model(p).UpdateColumn("created_at", at).Error; err != nil {
+		t.Fatalf("created_at 설정 실패: %v", err)
+	}
+	return p
+}
+
+func TestCreatePost(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	author := testutil.MakeUser(t, db, "author")
+
+	t.Run("상태를 안 주면 발행 글이 되고 작성자를 싣는다", func(t *testing.T) {
+		p := &model.Post{Title: "제목", Content: "본문", UserID: author.ID, IsPublic: true}
+		if err := svc.CreatePost(p); err != nil {
+			t.Fatalf("CreatePost: %v", err)
+		}
+		if p.Status != model.PostStatusPublished {
+			t.Fatalf("Status = %q, want published", p.Status)
+		}
+		if p.User.Username != "author" {
+			t.Fatalf("User.Username = %q, want author", p.User.Username)
+		}
+	})
+
+	t.Run("태그 문자열을 다듬어 태그로 만든다", func(t *testing.T) {
+		p := &model.Post{Title: "태그 글", Content: "본문", UserID: author.ID, TagsRaw: " go , ,rust,go"}
+		if err := svc.CreatePost(p); err != nil {
+			t.Fatalf("CreatePost: %v", err)
+		}
+		if got, want := tagNames(p), []string{"go", "rust"}; !slices.Equal(got, want) {
+			t.Fatalf("tags = %v, want %v (공백·빈 값·중복은 빠져야 한다)", got, want)
+		}
+	})
+
+	t.Run("이미 있는 태그는 다시 만들지 않는다", func(t *testing.T) {
+		p := &model.Post{Title: "또 태그 글", Content: "본문", UserID: author.ID, TagsRaw: "go"}
+		if err := svc.CreatePost(p); err != nil {
+			t.Fatalf("CreatePost: %v", err)
+		}
+		var count int64
+		db.Model(&model.Tag{}).Where("name = ?", "go").Count(&count)
+		if count != 1 {
+			t.Fatalf("go 태그 행 = %d, want 1", count)
+		}
+	})
+}
+
+func TestUpdatePost_Fields(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	owner := testutil.MakeUser(t, db, "owner")
+	p := &model.Post{Title: "제목", Content: "본문", UserID: owner.ID, IsPublic: true, TagsRaw: "go,rust"}
+	if err := svc.CreatePost(p); err != nil {
+		t.Fatalf("CreatePost: %v", err)
+	}
+
+	t.Run("태그를 바꾸면 새 목록으로 갈아 끼운다", func(t *testing.T) {
+		got, err := svc.UpdatePost(p.ID, owner.ID, &dto.UpdatePostRequest{Tags: strPtr("rust, c")})
+		if err != nil {
+			t.Fatalf("UpdatePost: %v", err)
+		}
+		if names, want := tagNames(got), []string{"c", "rust"}; !slices.Equal(names, want) {
+			t.Fatalf("tags = %v, want %v", names, want)
+		}
+		if got.Title != "제목" {
+			t.Fatalf("Title = %q, 보내지 않은 필드는 그대로여야 한다", got.Title)
+		}
+	})
+
+	t.Run("빈 태그 문자열은 태그를 모두 뗀다", func(t *testing.T) {
+		got, err := svc.UpdatePost(p.ID, owner.ID, &dto.UpdatePostRequest{Tags: strPtr("")})
+		if err != nil {
+			t.Fatalf("UpdatePost: %v", err)
+		}
+		if len(got.Tags) != 0 {
+			t.Fatalf("tags = %v, want 없음", tagNames(got))
+		}
+	})
+
+	t.Run("비공개로 돌리고 초안으로 내린다", func(t *testing.T) {
+		private := false
+		draft := string(model.PostStatusDraft)
+		got, err := svc.UpdatePost(p.ID, owner.ID, &dto.UpdatePostRequest{IsPublic: &private, Status: &draft})
+		if err != nil {
+			t.Fatalf("UpdatePost: %v", err)
+		}
+		if got.IsPublic || got.Status != model.PostStatusDraft {
+			t.Fatalf("IsPublic=%v Status=%q, want false/draft", got.IsPublic, got.Status)
+		}
+		if _, err := svc.GetPostByID(p.ID, nil); !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("익명 조회 err = %v, want ErrUnauthorized", err)
+		}
+	})
+
+	t.Run("바꿀 필드가 없으면 거부한다", func(t *testing.T) {
+		if _, err := svc.UpdatePost(p.ID, owner.ID, &dto.UpdatePostRequest{}); !errors.Is(err, ErrNoFieldsToUpdate) {
+			t.Fatalf("err = %v, want ErrNoFieldsToUpdate", err)
+		}
+	})
+
+	t.Run("없는 글", func(t *testing.T) {
+		if _, err := svc.UpdatePost(9999, owner.ID, &dto.UpdatePostRequest{Title: strPtr("x")}); !errors.Is(err, ErrPostNotFound) {
+			t.Fatalf("err = %v, want ErrPostNotFound", err)
+		}
+	})
+}
+
+func TestGetPostByID_ViewsAndMissing(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	owner := testutil.MakeUser(t, db, "owner")
+	stranger := testutil.MakeUser(t, db, "stranger")
+	p := testutil.MakePost(t, db, owner.ID)
+	draft := testutil.MakePost(t, db, owner.ID, testutil.WithStatus("draft"))
+
+	t.Run("조회할 때마다 조회수가 오른다", func(t *testing.T) {
+		first, err := svc.GetPostByID(p.ID, nil)
+		if err != nil {
+			t.Fatalf("GetPostByID: %v", err)
+		}
+		second, _ := svc.GetPostByID(p.ID, nil)
+		if first.ViewCount != 1 || second.ViewCount != 2 {
+			t.Fatalf("view counts = %d, %d, want 1, 2", first.ViewCount, second.ViewCount)
+		}
+	})
+
+	t.Run("거부된 조회는 조회수를 올리지 않는다", func(t *testing.T) {
+		if _, err := svc.GetPostByID(draft.ID, &stranger.ID); !errors.Is(err, ErrUnauthorized) {
+			t.Fatalf("err = %v, want ErrUnauthorized (초안은 작성자만)", err)
+		}
+		var reloaded model.Post
+		db.First(&reloaded, draft.ID)
+		if reloaded.ViewCount != 0 {
+			t.Fatalf("ViewCount = %d, want 0", reloaded.ViewCount)
+		}
+	})
+
+	t.Run("없는 글과 삭제된 글", func(t *testing.T) {
+		gone := testutil.MakePost(t, db, owner.ID)
+		db.Delete(&model.Post{}, gone.ID)
+		for _, id := range []uint{9999, gone.ID} {
+			if _, err := svc.GetPostByID(id, &owner.ID); !errors.Is(err, ErrPostNotFound) {
+				t.Fatalf("id %d err = %v, want ErrPostNotFound", id, err)
+			}
+		}
+	})
+}
+
+func TestGetPublicPosts(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	author := testutil.MakeUser(t, db, "author")
+	oldest := makePostAt(t, db, author.ID, 30)
+	middle := makePostAt(t, db, author.ID, 20)
+	newest := makePostAt(t, db, author.ID, 10)
+	makePostAt(t, db, author.ID, 5, testutil.WithPrivate())
+	makePostAt(t, db, author.ID, 5, testutil.WithStatus("draft"))
+	gone := makePostAt(t, db, author.ID, 5)
+	db.Delete(&model.Post{}, gone.ID)
+	if _, err := svc.UpdatePost(middle.ID, author.ID, &dto.UpdatePostRequest{Tags: strPtr("go")}); err != nil {
+		t.Fatalf("태그 달기: %v", err)
+	}
+
+	t.Run("공개 발행 글만 최신순으로", func(t *testing.T) {
+		posts, total, err := svc.GetPublicPosts(1, 10, "")
+		if err != nil {
+			t.Fatalf("GetPublicPosts: %v", err)
+		}
+		if want := []uint{newest.ID, middle.ID, oldest.ID}; total != 3 || !slices.Equal(postIDs(posts), want) {
+			t.Fatalf("total=%d posts=%v, want 3 %v", total, postIDs(posts), want)
+		}
+		if posts[0].User.Username != "author" {
+			t.Fatalf("목록에 작성자가 실리지 않았다")
+		}
+	})
+
+	t.Run("페이지를 나눠도 total 은 전체 수", func(t *testing.T) {
+		posts, total, err := svc.GetPublicPosts(2, 2, "")
+		if err != nil {
+			t.Fatalf("GetPublicPosts: %v", err)
+		}
+		if total != 3 || !slices.Equal(postIDs(posts), []uint{oldest.ID}) {
+			t.Fatalf("total=%d posts=%v, want 3 [%d]", total, postIDs(posts), oldest.ID)
+		}
+	})
+
+	t.Run("태그로 거른다", func(t *testing.T) {
+		posts, total, err := svc.GetPublicPosts(1, 10, " go ")
+		if err != nil {
+			t.Fatalf("GetPublicPosts: %v", err)
+		}
+		if total != 1 || !slices.Equal(postIDs(posts), []uint{middle.ID}) {
+			t.Fatalf("total=%d posts=%v, want 1 [%d]", total, postIDs(posts), middle.ID)
+		}
+	})
+
+	t.Run("잘못된 태그는 거부한다", func(t *testing.T) {
+		if _, _, err := svc.GetPublicPosts(1, 10, "go;drop"); !errors.Is(err, ErrInvalidTag) {
+			t.Fatalf("err = %v, want ErrInvalidTag", err)
+		}
+	})
+}
+
+func TestSearchPosts(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db, nil)
+	author := testutil.MakeUser(t, db, "author")
+	byTitle := makePostAt(t, db, author.ID, 20, testutil.WithTitle("가비지 컬렉션"))
+	byContent := makePostAt(t, db, author.ID, 10, testutil.WithTitle("메모리"))
+	db.Model(byContent).UpdateColumn("content", "Mark and Sweep 가비지 수집기")
+	makePostAt(t, db, author.ID, 5, testutil.WithTitle("가비지 초안"), testutil.WithStatus("draft"))
+	makePostAt(t, db, author.ID, 5, testutil.WithTitle("가비지 비공개"), testutil.WithPrivate())
+	makePostAt(t, db, author.ID, 5, testutil.WithTitle("상관없는 글"))
+
+	posts, total, err := svc.SearchPosts("가비지", 1, 10)
+	if err != nil {
+		t.Fatalf("SearchPosts: %v", err)
+	}
+	if want := []uint{byContent.ID, byTitle.ID}; total != 2 || !slices.Equal(postIDs(posts), want) {
+		t.Fatalf("total=%d posts=%v, want 2 %v (제목·본문 일치, 숨은 글 제외, 최신순)", total, postIDs(posts), want)
+	}
+
+	posts, total, _ = svc.SearchPosts("가비지", 2, 1)
+	if total != 2 || !slices.Equal(postIDs(posts), []uint{byTitle.ID}) {
+		t.Fatalf("2쪽: total=%d posts=%v, want 2 [%d]", total, postIDs(posts), byTitle.ID)
 	}
 }
