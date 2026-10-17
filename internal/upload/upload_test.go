@@ -196,3 +196,26 @@ func TestAllowedMIMETypes_ContainsExpected(t *testing.T) {
 		}
 	}
 }
+
+// 저장 확장자는 감지된 내용 형식을 따른다. 정적 서버가 확장자로 Content-Type 을
+// 정하므로, PNG 내용을 .jpg 로 저장하면 image/jpeg 로 응답된다.
+func TestValidateAndGenerateFilename_ExtensionFollowsDetectedType(t *testing.T) {
+	cases := []struct {
+		filename string
+		magic    []byte
+		want     string
+	}{
+		{"screenshot.jpg", pngHeader, ".png"},
+		{"photo.png", jpegHeader, ".jpg"},
+		{"photo.webp", pngHeader, ".png"},
+	}
+	for _, tc := range cases {
+		name, err := ValidateAndGenerateFilename(newHeader(tc.filename, 512), newMockFile(makeFileData(tc.magic, 512)))
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", tc.filename, err)
+		}
+		if got := filepath.Ext(name); got != tc.want {
+			t.Errorf("%s: ext = %q, want %q", tc.filename, got, tc.want)
+		}
+	}
+}

@@ -5,7 +5,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"path/filepath"
 
 	"github.com/google/uuid"
 )
@@ -41,7 +40,7 @@ func DetectMIME(file multipart.File) (string, error) {
 }
 
 // ValidateAndGenerateFilename validates the file size, detects the real MIME type,
-// and returns a UUID-based filename with the correct extension.
+// and returns a UUID-based filename with the extension of the detected type.
 func ValidateAndGenerateFilename(header *multipart.FileHeader, file multipart.File) (string, error) {
 	if header.Size > MaxFileSize {
 		return "", fmt.Errorf("파일 크기는 5MB 이하여야 합니다")
@@ -57,14 +56,8 @@ func ValidateAndGenerateFilename(header *multipart.FileHeader, file multipart.Fi
 		return "", fmt.Errorf("허용되는 파일 형식: jpeg, png, gif, webp")
 	}
 
-	// Prefer original extension if it matches an allowed type
-	origExt := filepath.Ext(header.Filename)
-	for _, allowedExt := range AllowedMIMETypes {
-		if origExt == allowedExt {
-			ext = origExt
-			break
-		}
-	}
+	// The stored extension always follows the detected type: static serving
+	// derives Content-Type from it, so the client's name must not decide it.
 
 	return fmt.Sprintf("%s%s", uuid.New().String(), ext), nil
 }
