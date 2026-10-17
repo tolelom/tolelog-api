@@ -58,14 +58,14 @@ func TestDeleteComment_AuthorOnly(t *testing.T) {
 	comment := testutil.MakeComment(t, db, post.ID, commenter.ID, "지워질 댓글")
 
 	t.Run("글 작성자도 타인 댓글 삭제 불가 (현재 구현)", func(t *testing.T) {
-		err := svc.DeleteComment(comment.ID, postOwner.ID)
+		err := svc.DeleteComment(post.ID, comment.ID, postOwner.ID)
 		if !errors.Is(err, ErrUnauthorized) {
 			t.Fatalf("err = %v, want ErrUnauthorized", err)
 		}
 	})
 
 	t.Run("작성자 본인은 삭제 가능 (soft delete)", func(t *testing.T) {
-		if err := svc.DeleteComment(comment.ID, commenter.ID); err != nil {
+		if err := svc.DeleteComment(post.ID, comment.ID, commenter.ID); err != nil {
 			t.Fatalf("본인 삭제 실패: %v", err)
 		}
 		var count int64
@@ -90,7 +90,7 @@ func TestUpdateComment_AuthorOnly(t *testing.T) {
 	comment := testutil.MakeComment(t, db, post.ID, commenter.ID, "원본")
 
 	t.Run("타인 수정 차단", func(t *testing.T) {
-		_, err := svc.UpdateComment(comment.ID, intruder.ID, "변조")
+		_, err := svc.UpdateComment(post.ID, comment.ID, intruder.ID, "변조")
 		if !errors.Is(err, ErrUnauthorized) {
 			t.Fatalf("err = %v, want ErrUnauthorized", err)
 		}
@@ -104,7 +104,7 @@ func TestUpdateComment_AuthorOnly(t *testing.T) {
 	})
 
 	t.Run("본인 수정 가능 + IsEdited 마킹", func(t *testing.T) {
-		updated, err := svc.UpdateComment(comment.ID, commenter.ID, "수정본")
+		updated, err := svc.UpdateComment(post.ID, comment.ID, commenter.ID, "수정본")
 		if err != nil {
 			t.Fatalf("본인 수정 실패: %v", err)
 		}
@@ -235,10 +235,10 @@ func TestUpdateAndDeleteComment_Missing(t *testing.T) {
 	svc := NewService(db)
 	user := testutil.MakeUser(t, db, "user")
 
-	if _, err := svc.UpdateComment(9999, user.ID, "x"); !errors.Is(err, ErrCommentNotFound) {
+	if _, err := svc.UpdateComment(1, 9999, user.ID, "x"); !errors.Is(err, ErrCommentNotFound) {
 		t.Fatalf("Update err = %v, want ErrCommentNotFound", err)
 	}
-	if err := svc.DeleteComment(9999, user.ID); !errors.Is(err, ErrCommentNotFound) {
+	if err := svc.DeleteComment(1, 9999, user.ID); !errors.Is(err, ErrCommentNotFound) {
 		t.Fatalf("Delete err = %v, want ErrCommentNotFound", err)
 	}
 }

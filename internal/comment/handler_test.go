@@ -348,7 +348,7 @@ func TestGetComments_Handler_ServiceError(t *testing.T) {
 
 func TestDeleteComment_Handler_Success(t *testing.T) {
 	ms := &mockService{
-		deleteCommentFn: func(commentID uint, userID uint) error {
+		deleteCommentFn: func(postID uint, commentID uint, userID uint) error {
 			return nil
 		},
 	}
@@ -409,7 +409,7 @@ func TestDeleteComment_Handler_InvalidCommentID(t *testing.T) {
 
 func TestDeleteComment_Handler_CommentNotFound(t *testing.T) {
 	ms := &mockService{
-		deleteCommentFn: func(commentID uint, userID uint) error {
+		deleteCommentFn: func(postID uint, commentID uint, userID uint) error {
 			return ErrCommentNotFound
 		},
 	}
@@ -427,7 +427,7 @@ func TestDeleteComment_Handler_CommentNotFound(t *testing.T) {
 
 func TestDeleteComment_Handler_Forbidden(t *testing.T) {
 	ms := &mockService{
-		deleteCommentFn: func(commentID uint, userID uint) error {
+		deleteCommentFn: func(postID uint, commentID uint, userID uint) error {
 			return ErrUnauthorized
 		},
 	}
@@ -445,7 +445,7 @@ func TestDeleteComment_Handler_Forbidden(t *testing.T) {
 
 func TestDeleteComment_Handler_ServiceError(t *testing.T) {
 	ms := &mockService{
-		deleteCommentFn: func(commentID uint, userID uint) error {
+		deleteCommentFn: func(postID uint, commentID uint, userID uint) error {
 			return errors.New("unexpected error")
 		},
 	}
@@ -465,7 +465,7 @@ func TestDeleteComment_Handler_ServiceError(t *testing.T) {
 
 func TestUpdateComment_Handler_Success(t *testing.T) {
 	ms := &mockService{
-		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+		updateCommentFn: func(postID uint, commentID uint, userID uint, content string) (*model.Comment, error) {
 			return &model.Comment{ID: commentID, UserID: userID, Content: content, User: model.User{Username: "tester"}}, nil
 		},
 	}
@@ -558,7 +558,7 @@ func TestUpdateComment_Handler_InvalidJSON(t *testing.T) {
 
 func TestUpdateComment_Handler_NotFound(t *testing.T) {
 	ms := &mockService{
-		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+		updateCommentFn: func(postID uint, commentID uint, userID uint, content string) (*model.Comment, error) {
 			return nil, ErrCommentNotFound
 		},
 	}
@@ -579,7 +579,7 @@ func TestUpdateComment_Handler_NotFound(t *testing.T) {
 
 func TestUpdateComment_Handler_Forbidden(t *testing.T) {
 	ms := &mockService{
-		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+		updateCommentFn: func(postID uint, commentID uint, userID uint, content string) (*model.Comment, error) {
 			return nil, ErrUnauthorized
 		},
 	}
@@ -600,7 +600,7 @@ func TestUpdateComment_Handler_Forbidden(t *testing.T) {
 
 func TestUpdateComment_Handler_ServiceError(t *testing.T) {
 	ms := &mockService{
-		updateCommentFn: func(commentID uint, userID uint, content string) (*model.Comment, error) {
+		updateCommentFn: func(postID uint, commentID uint, userID uint, content string) (*model.Comment, error) {
 			return nil, errors.New("db error")
 		},
 	}
@@ -861,7 +861,7 @@ func TestGetComments_Handler_ResponseHasRepliesField(t *testing.T) {
 
 func TestDeleteComment_Handler_ErrorResponseFormat(t *testing.T) {
 	ms := &mockService{
-		deleteCommentFn: func(commentID uint, userID uint) error {
+		deleteCommentFn: func(postID uint, commentID uint, userID uint) error {
 			return ErrCommentNotFound
 		},
 	}

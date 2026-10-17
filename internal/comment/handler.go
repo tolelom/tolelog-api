@@ -141,7 +141,8 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if _, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다"); err != nil {
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다")
+	if err != nil {
 		return nil
 	}
 
@@ -155,13 +156,16 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	comment, err := h.service.UpdateComment(commentID, userID, req.Content)
+	comment, err := h.service.UpdateComment(postID, commentID, userID, req.Content)
 	if err != nil {
 		if errors.Is(err, ErrCommentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("comment_not_found", "댓글을 찾을 수 없습니다"))
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 댓글을 수정할 권한이 없습니다"))
+		}
+		if errors.Is(err, ErrPostNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "게시글을 찾을 수 없습니다"))
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "댓글 수정에 실패했습니다"))
 	}
@@ -193,7 +197,8 @@ func (h *Handler) DeleteComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if _, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다"); err != nil {
+	postID, err := httputil.ParseID(c, "id", "invalid_id", "잘못된 게시글 ID입니다")
+	if err != nil {
 		return nil
 	}
 
@@ -202,7 +207,7 @@ func (h *Handler) DeleteComment(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if err := h.service.DeleteComment(commentID, userID); err != nil {
+	if err := h.service.DeleteComment(postID, commentID, userID); err != nil {
 		if errors.Is(err, ErrCommentNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("comment_not_found", "댓글을 찾을 수 없습니다"))
 		}

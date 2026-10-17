@@ -17,8 +17,8 @@ var (
 type Service interface {
 	CreateComment(comment *model.Comment) error
 	GetCommentsByPostID(postID uint, viewerID *uint, limit int) ([]model.Comment, int64, error)
-	UpdateComment(commentID uint, userID uint, content string) (*model.Comment, error)
-	DeleteComment(commentID uint, userID uint) error
+	UpdateComment(postID uint, commentID uint, userID uint, content string) (*model.Comment, error)
+	DeleteComment(postID uint, commentID uint, userID uint) error
 }
 
 type service struct {
@@ -99,42 +99,42 @@ func (s *service) GetCommentsByPostID(postID uint, viewerID *uint, limit int) ([
 	return comments, total, nil
 }
 
-// UpdateComment updates a comment's content if the requesting user is the author.
-func (s *service) UpdateComment(commentID uint, userID uint, content string) (*model.Comment, error) {
-	var comment model.Comment
-	if err := s.db.First(&comment, commentID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrCommentNotFound
-		}
+// UpdateComment updates a comment's content if the requesting user is the author
+// and can still see the post. The comment must belong to postID.
+func (s *service) UpdateComment(postID uint, commentID uint, userID uint, content string) (*model.Comment, error) {
+	comment, err := s.findPostComment(postID, commentID)
+	if err != nil {
 		return nil, err
 	}
 
 	if comment.UserID != userID {
 		return nil, ErrUnauthorized
 	}
+	if err := s.checkPostVisible(postID, &userID); err != nil {
+		return nil, err
+	}
 
 	comment.Content = content
 	comment.IsEdited = true
-	if err := s.db.Save(&comment).Error; err != nil {
+	if err := s.db.Save(comment).Error; err != nil {
 		return nil, err
 	}
 
 	// Preload User for the response
-	if err := s.db.Preload("User").First(&comment, comment.ID).Error; err != nil {
+	if err := s.db.Preload("User").First(comment, comment.ID).Error; err != nil {
 		return nil, err
 	}
 
-	return &comment, nil
+	return comment, nil
 }
 
 // DeleteComment soft-deletes a comment if the requesting user is the author.
+// The comment must belong to postID. Authors may delete their own comment even
+// when they can no longer see the post.
 // Child replies are preserved (they become orphans displayed as root-level).
-func (s *service) DeleteComment(commentID uint, userID uint) error {
-	var comment model.Comment
-	if err := s.db.First(&comment, commentID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrCommentNotFound
-		}
+func (s *service) DeleteComment(postID uint, commentID uint, userID uint) error {
+	comment, err := s.findPostComment(postID, commentID)
+	if err != nil {
 		return err
 	}
 
@@ -142,9 +142,22 @@ func (s *service) DeleteComment(commentID uint, userID uint) error {
 		return ErrUnauthorized
 	}
 
-	if err := s.db.Delete(&comment).Error; err != nil {
+	if err := s.db.Delete(comment).Error; err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// findPostComment loads a comment that belongs to postID. A comment of another
+// post is reported as not found, like a missing one.
+func (s *service) findPostComment(postID uint, commentID uint) (*model.Comment, error) {
+	var comment model.Comment
+	if err := s.db.Where("id = ? AND post_id = ?", commentID, postID).First(&comment).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCommentNotFound
+		}
+		return nil, err
+	}
+	return &comment, nil
 }
