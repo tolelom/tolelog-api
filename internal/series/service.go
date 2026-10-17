@@ -202,9 +202,12 @@ func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID 
 		}
 	}
 
-	post.SeriesID = &seriesID
-	post.SeriesOrder = &order
-	return s.db.Save(&post).Error
+	// 시리즈 칸만 쓴다. Save 는 글 전체를 다시 써서 그 사이 다른 요청이 고친
+	// 제목·본문을 덮을 수 있다.
+	return s.db.Model(&post).Updates(map[string]any{
+		"series_id":    seriesID,
+		"series_order": order,
+	}).Error
 }
 
 func (s *service) RemovePostFromSeries(seriesID uint, postID uint, userID uint) error {
