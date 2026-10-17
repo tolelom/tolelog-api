@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"log/slog"
 	"time"
 	"tolelom_api/internal/comment"
 	"tolelom_api/internal/config"
@@ -130,12 +131,15 @@ func Setup(app *fiber.App, cfg *config.Config) {
 		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
 		defer cancel()
 
+		// 오류 원문(DB 호스트·포트 등)은 응답에 싣지 않고 서버 로그에만 남긴다.
 		if sqlDB, err := cfg.DB.DB(); err != nil {
-			resp.Database = "error: " + err.Error()
+			slog.Error("readiness: database handle unavailable", "error", err)
+			resp.Database = "error"
 			resp.Status = "degraded"
 			httpStatus = fiber.StatusServiceUnavailable
 		} else if err := sqlDB.PingContext(ctx); err != nil {
-			resp.Database = "error: " + err.Error()
+			slog.Error("readiness: database ping failed", "error", err)
+			resp.Database = "error"
 			resp.Status = "degraded"
 			httpStatus = fiber.StatusServiceUnavailable
 		}
