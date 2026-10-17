@@ -20,7 +20,8 @@ func injectBefore(t *testing.T, db *gorm.DB, kind string, once func(tx *gorm.DB)
 			return
 		}
 		fired = true
-		once(tx)
+		// 별도 세션: 같은 tx 로 Exec 하면 진행 중인 구문의 조건이 지워진다.
+		once(tx.Session(&gorm.Session{NewDB: true}))
 	}
 	var err error
 	switch kind {
