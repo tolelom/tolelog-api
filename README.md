@@ -1,7 +1,7 @@
 # Tolelog Backend
 
 Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
-프론트엔드는 [tolelog](https://github.com/tolelom/tolelog) 참고.
+프론트엔드는 [tolelog-web](https://github.com/tolelom/tolelog-web) 참고.
 
 ## Tech Stack
 
@@ -26,8 +26,8 @@ Tolelog 블로그 플랫폼의 Go Fiber 기반 RESTful API 서버.
 ## Getting Started
 
 ```bash
-git clone https://github.com/tolelom/tolelog-backend.git
-cd tolelog-backend
+git clone https://github.com/tolelom/tolelog-api.git
+cd tolelog-api
 
 cp .env_example .env
 # .env 파일에 DB, JWT_SECRET 등 설정
