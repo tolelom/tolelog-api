@@ -189,3 +189,19 @@ func TestSanitizeTag_ExactlyMaxLength(t *testing.T) {
 		t.Errorf("SanitizeTag result mismatch")
 	}
 }
+
+// 검색어와 태그 길이는 바이트가 아니라 글자 수다. 한글 한 글자는 3바이트다.
+func TestSanitize_CountsRunesNotBytes(t *testing.T) {
+	if _, err := SanitizeSearchQuery("가"); err == nil {
+		t.Error("한 글자 검색어는 막아야 한다")
+	}
+	if _, err := SanitizeSearchQuery(strings.Repeat("가", 100)); err != nil {
+		t.Errorf("한글 100자 검색어는 받아야 한다: %v", err)
+	}
+	if _, err := SanitizeTag(strings.Repeat("가", 50)); err != nil {
+		t.Errorf("한글 50자 태그는 받아야 한다: %v", err)
+	}
+	if _, err := SanitizeTag(strings.Repeat("가", 51)); err == nil {
+		t.Error("51자 태그는 막아야 한다")
+	}
+}

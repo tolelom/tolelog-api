@@ -4,6 +4,12 @@ import (
 	"regexp"
 	"strings"
 	"tolelom_api/internal/model"
+	"unicode/utf8"
+)
+
+const (
+	searchQueryMinRunes = 2
+	searchQueryMaxRunes = 100
 )
 
 var validTagPattern = regexp.MustCompile(`^[\p{L}\p{N}\-_\.\+\# ]+$`)
@@ -15,7 +21,7 @@ var validSearchPattern = regexp.MustCompile(`^[\p{L}\p{N}\s\-_\.\,\!\?\:\;\'\"\(
 // SanitizeSearchQuery validates and sanitizes a search query parameter.
 func SanitizeSearchQuery(query string) (string, error) {
 	query = strings.TrimSpace(query)
-	if len(query) < 2 || len(query) > 100 {
+	if n := utf8.RuneCountInString(query); n < searchQueryMinRunes || n > searchQueryMaxRunes {
 		return "", ErrInvalidSearchQuery
 	}
 	if !validSearchPattern.MatchString(query) {
@@ -30,7 +36,7 @@ func SanitizeTag(tag string) (string, error) {
 	if tag == "" {
 		return "", nil
 	}
-	if len(tag) > 50 {
+	if utf8.RuneCountInString(tag) > model.TagNameMaxRunes {
 		return "", ErrInvalidTag
 	}
 	if !validTagPattern.MatchString(tag) {
