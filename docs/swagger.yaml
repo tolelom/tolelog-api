@@ -276,6 +276,24 @@ definitions:
       username:
         type: string
     type: object
+  router.HealthResponse:
+    properties:
+      message:
+        example: Server is running
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
+  router.ReadinessResponse:
+    properties:
+      database:
+        example: ok
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
 host: tolelom.xyz
 info:
   contact: {}
@@ -444,6 +462,36 @@ paths:
       summary: RSS 피드
       tags:
       - Feed
+  /health:
+    get:
+      description: 서버의 health 상태를 반환합니다
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/router.HealthResponse'
+      summary: Health Check
+      tags:
+      - Health
+  /health/ready:
+    get:
+      description: DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/router.ReadinessResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/router.ReadinessResponse'
+      summary: Readiness Check
+      tags:
+      - Health
   /posts:
     get:
       description: 공개된 모든 글을 페이지네이션으로 조회합니다
