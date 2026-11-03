@@ -21,15 +21,12 @@ type urlEntry struct {
 	LastMod string `xml:"lastmod,omitempty"`
 }
 
-// Entry holds minimal data for sitemap generation.
-// Title 은 슬러그 생성에 사용된다.
 type Entry struct {
 	ID        uint
 	Title     string
 	UpdatedAt time.Time
 }
 
-// Repository abstracts DB access for sitemap generation.
 type Repository interface {
 	GetPublicPostEntries() ([]Entry, error)
 	GetSeriesEntries() ([]Entry, error)

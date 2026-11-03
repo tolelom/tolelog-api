@@ -36,7 +36,6 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
-// findOwnedSeries returns ErrUnauthorized when the series belongs to someone else.
 func (s *service) findOwnedSeries(seriesID, userID uint) (*model.Series, error) {
 	var series model.Series
 	if err := s.db.First(&series, seriesID).Error; err != nil {
@@ -58,14 +57,20 @@ func (s *service) CreateSeries(series *model.Series) error {
 	return s.db.Preload("User").First(series, series.ID).Error
 }
 
-// seriesPostsVisibleTo scopes a series' posts to what the viewer may see:
-// the series owner sees every post, others only public published ones.
-func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
-	query := s.db.Model(&model.Post{}).Where("series_id = ?", series.ID)
-	if viewerID == nil || *viewerID != series.UserID {
-		query = query.Scopes(model.PublicPosts)
+func isOwner(viewerID *uint, ownerID uint) bool {
+	return viewerID != nil && *viewerID == ownerID
+}
+
+// visibleTo hides non-public posts from everyone but the series owner.
+func visibleTo(query *gorm.DB, ownerID uint, viewerID *uint) *gorm.DB {
+	if isOwner(viewerID, ownerID) {
+		return query
 	}
-	return query
+	return query.Scopes(model.PublicPosts)
+}
+
+func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
+	return visibleTo(s.db.Model(&model.Post{}).Where("series_id = ?", series.ID), series.UserID, viewerID)
 }
 
 func (s *service) GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, []model.Post, error) {
@@ -87,42 +92,43 @@ func (s *service) GetSeriesByID(seriesID uint, viewerID *uint) (*model.Series, [
 	return &series, posts, nil
 }
 
-// GetSeriesByUserID 의 글 수는 보는 사람이 볼 수 있는 글만 센다(작성자는 전부).
 func (s *service) GetSeriesByUserID(userID uint, viewerID *uint) ([]model.Series, map[uint]int64, error) {
 	var seriesList []model.Series
 	if err := s.db.Preload("User").Where("user_id = ?", userID).
 		Order("created_at DESC").Find(&seriesList).Error; err != nil {
 		return nil, nil, err
 	}
+	postCounts, err := s.visiblePostCounts(seriesList, userID, viewerID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return seriesList, postCounts, nil
+}
 
-	// Batch count posts per series in a single query
-	postCounts := make(map[uint]int64, len(seriesList))
-	if len(seriesList) > 0 {
-		seriesIDs := make([]uint, len(seriesList))
-		for i, ser := range seriesList {
-			seriesIDs[i] = ser.ID
-		}
-
-		type countResult struct {
-			SeriesID uint
-			Count    int64
-		}
-		var results []countResult
-		query := s.db.Model(&model.Post{}).
-			Select("series_id, COUNT(*) as count").
-			Where("series_id IN ?", seriesIDs)
-		if viewerID == nil || *viewerID != userID {
-			query = query.Scopes(model.PublicPosts)
-		}
-		if err := query.Group("series_id").Find(&results).Error; err != nil {
-			return nil, nil, err
-		}
-		for _, r := range results {
-			postCounts[r.SeriesID] = r.Count
-		}
+func (s *service) visiblePostCounts(seriesList []model.Series, ownerID uint, viewerID *uint) (map[uint]int64, error) {
+	counts := make(map[uint]int64, len(seriesList))
+	if len(seriesList) == 0 {
+		return counts, nil
+	}
+	seriesIDs := make([]uint, len(seriesList))
+	for i := range seriesList {
+		seriesIDs[i] = seriesList[i].ID
 	}
 
-	return seriesList, postCounts, nil
+	var rows []struct {
+		SeriesID uint
+		Count    int64
+	}
+	query := s.db.Model(&model.Post{}).
+		Select("series_id, COUNT(*) as count").
+		Where("series_id IN ?", seriesIDs)
+	if err := visibleTo(query, ownerID, viewerID).Group("series_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		counts[r.SeriesID] = r.Count
+	}
+	return counts, nil
 }
 
 func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error) {
@@ -162,9 +168,7 @@ func (s *service) DeleteSeries(seriesID uint, userID uint) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 소속 글들의 series_id, series_order를 null로
-		if err := tx.Model(&model.Post{}).Where("series_id = ?", seriesID).
-			Updates(map[string]interface{}{"series_id": nil, "series_order": nil}).Error; err != nil {
+		if err := tx.Model(&model.Post{}).Where("series_id = ?", seriesID).Updates(outOfSeries()).Error; err != nil {
 			return err
 		}
 		return tx.Delete(series).Error
@@ -216,8 +220,11 @@ func (s *service) RemovePostFromSeries(seriesID uint, postID uint, userID uint) 
 		return err
 	}
 
-	return s.db.Model(&model.Post{}).Where("id = ? AND series_id = ?", postID, seriesID).
-		Updates(map[string]interface{}{"series_id": nil, "series_order": nil}).Error
+	return s.db.Model(&model.Post{}).Where("id = ? AND series_id = ?", postID, seriesID).Updates(outOfSeries()).Error
+}
+
+func outOfSeries() map[string]any {
+	return map[string]any{"series_id": nil, "series_order": nil}
 }
 
 func (s *service) ReorderPosts(seriesID uint, postIDs []uint, userID uint) error {
@@ -227,9 +234,8 @@ func (s *service) ReorderPosts(seriesID uint, postIDs []uint, userID uint) error
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for i, postID := range postIDs {
-			order := i + 1
 			if err := tx.Model(&model.Post{}).Where("id = ? AND series_id = ?", postID, seriesID).
-				Update("series_order", order).Error; err != nil {
+				Update("series_order", i+1).Error; err != nil {
 				return err
 			}
 		}
@@ -246,20 +252,18 @@ func (s *service) CountPostsInSeries(seriesID uint) (int64, error) {
 	return count, nil
 }
 
+// GetSeriesNavigation 은 글이 없거나, 보는 사람에게 숨었거나, 시리즈에 없으면 오류 없이 nil 이다.
+// 숨은 글은 시리즈 소속도 드러내지 않는다.
 func (s *service) GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesNavResponse, error) {
 	var post model.Post
 	if err := s.db.First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // 글이 없으면 nil 반환 (에러 아님)
+			return nil, nil
 		}
 		return nil, err
 	}
-	if !post.VisibleTo(viewerID) {
-		return nil, nil // 볼 수 없는 글은 시리즈 소속도 드러내지 않는다
-	}
-
-	if post.SeriesID == nil {
-		return nil, nil // 시리즈에 속하지 않으면 nil
+	if !post.VisibleTo(viewerID) || post.SeriesID == nil {
+		return nil, nil
 	}
 
 	var series model.Series
