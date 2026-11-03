@@ -1,11 +1,11 @@
-package utils
+package markdown
 
 import (
 	"strings"
 	"testing"
 )
 
-func TestStripMarkdown(t *testing.T) {
+func TestStrip(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected string
@@ -16,9 +16,9 @@ func TestStripMarkdown(t *testing.T) {
 		{"", ""},
 	}
 	for _, tt := range tests {
-		result := StripMarkdown(tt.input)
+		result := Strip(tt.input)
 		if result != tt.expected {
-			t.Errorf("StripMarkdown(%q) = %q, want %q", tt.input, result, tt.expected)
+			t.Errorf("Strip(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
 	}
 }
