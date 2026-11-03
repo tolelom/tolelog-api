@@ -5,6 +5,7 @@ import (
 	"strings"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +16,7 @@ var (
 	ErrNoFieldsToUpdate   = errors.New("no fields to update")
 	ErrInvalidTag         = errors.New("invalid tag parameter")
 	ErrInvalidSearchQuery = errors.New("invalid search query")
+	ErrTagTooLong         = errors.New("tag name too long")
 )
 
 type Service interface {
@@ -51,6 +53,11 @@ func splitTags(tagsStr string) []string {
 
 func (s *service) syncTags(db *gorm.DB, post *model.Post, tagsStr string) error {
 	tagNames := splitTags(tagsStr)
+	for _, name := range tagNames {
+		if utf8.RuneCountInString(name) > model.TagNameMaxRunes {
+			return ErrTagTooLong
+		}
+	}
 	if len(tagNames) == 0 {
 		return db.Model(post).Association("Tags").Clear()
 	}

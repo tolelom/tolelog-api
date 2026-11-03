@@ -2,6 +2,7 @@ package post
 
 import (
 	"errors"
+	"fmt"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/model"
@@ -51,6 +52,9 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 	}
 
 	if err := h.service.CreatePost(p); err != nil {
+		if errors.Is(err, ErrTagTooLong) {
+			return respondTagTooLong(c)
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("creation_failed", "글 저장에 실패했습니다"))
 	}
 
@@ -268,6 +272,9 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 		if errors.Is(err, ErrNoFieldsToUpdate) {
 			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_fields_to_update", "수정할 필드가 없습니다"))
 		}
+		if errors.Is(err, ErrTagTooLong) {
+			return respondTagTooLong(c)
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "글 수정에 실패했습니다"))
 	}
 
@@ -416,4 +423,9 @@ func (h *Handler) GetDrafts(c *fiber.Ctx) error {
 		Status: "success",
 		Data:   responses,
 	})
+}
+
+func respondTagTooLong(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag",
+		fmt.Sprintf("태그는 %d자 이하여야 합니다", model.TagNameMaxRunes)))
 }

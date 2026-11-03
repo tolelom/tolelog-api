@@ -1057,3 +1057,28 @@ func TestGetLikeStatus_NoAuth_ReturnsFalse(t *testing.T) {
 		t.Errorf("expected liked=false for unauthenticated user, got %v", data["liked"])
 	}
 }
+
+func TestCreateAndUpdatePost_TagTooLongIsBadRequest(t *testing.T) {
+	ms := &mockService{
+		createPostFn: func(post *model.Post) error { return ErrTagTooLong },
+		updatePostFn: func(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
+			return nil, ErrTagTooLong
+		},
+	}
+	app := setupAuthPostApp(ms, 1)
+	for _, method := range []string{http.MethodPost, http.MethodPut} {
+		path := "/posts"
+		if method == http.MethodPut {
+			path = "/posts/1"
+		}
+		req := httptest.NewRequest(method, path, strings.NewReader(`{"title":"t","content":"c","tags":"x"}`))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("%s status = %d, want 400", method, resp.StatusCode)
+		}
+	}
+}
