@@ -30,7 +30,7 @@ func NewHandler(service Service) *Handler {
 // @Param        Authorization  header  string                      true  "Bearer token"
 // @Param        id             path    int                         true  "게시글 ID"
 // @Param        body           body    dto.CreateCommentRequest    true  "댓글 내용"
-// @Success      201  {object}  dto.SuccessResponse
+// @Success      201  {object}  dto.SuccessResponse{data=dto.CommentResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
@@ -84,7 +84,7 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        id     path   int  true   "게시글 ID"
 // @Param        limit  query  int  false  "최대 댓글 수 (기본값: 200, 최대: 500)"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.CommentListResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/comments [get]
@@ -130,7 +130,7 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 // @Param        id             path    int                         true  "게시글 ID"
 // @Param        comment_id     path    int                         true  "댓글 ID"
 // @Param        body           body    dto.UpdateCommentRequest    true  "수정할 댓글 내용"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.CommentResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -185,7 +185,7 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "게시글 ID"
 // @Param        comment_id     path    int     true  "댓글 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      204  "No Content"
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse

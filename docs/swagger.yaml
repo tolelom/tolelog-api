@@ -9,14 +9,23 @@ definitions:
     required:
     - post_id
     type: object
-  dto.AuthResponse:
+  dto.AuthDataResponse:
     properties:
       access_token:
         type: string
+      avatar_url:
+        type: string
       refresh_token:
         type: string
-      user:
-        $ref: '#/definitions/dto.UserResponse'
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  dto.AvatarResponse:
+    properties:
+      avatar_url:
+        type: string
     type: object
   dto.ChangePasswordRequest:
     properties:
@@ -29,6 +38,42 @@ definitions:
     required:
     - current_password
     - new_password
+    type: object
+  dto.CommentListResponse:
+    properties:
+      comments:
+        items:
+          $ref: '#/definitions/dto.CommentResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  dto.CommentResponse:
+    properties:
+      author:
+        type: string
+      avatar_url:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_edited:
+        type: boolean
+      parent_id:
+        type: integer
+      post_id:
+        type: integer
+      replies:
+        items:
+          $ref: '#/definitions/dto.CommentResponse'
+        type: array
+      updated_at:
+        type: string
+      user_id:
+        type: integer
     type: object
   dto.CreateCommentRequest:
     properties:
@@ -86,6 +131,23 @@ definitions:
       status:
         type: string
     type: object
+  dto.ImageUploadResponse:
+    properties:
+      url:
+        type: string
+    type: object
+  dto.LikeStatusResponse:
+    properties:
+      liked:
+        type: boolean
+    type: object
+  dto.LikeToggleResponse:
+    properties:
+      like_count:
+        type: integer
+      liked:
+        type: boolean
+    type: object
   dto.LoginRequest:
     properties:
       password:
@@ -99,6 +161,11 @@ definitions:
     required:
     - password
     - username
+    type: object
+  dto.MessageResponse:
+    properties:
+      message:
+        type: string
     type: object
   dto.Pagination:
     properties:
@@ -208,6 +275,27 @@ definitions:
     required:
     - post_ids
     type: object
+  dto.SeriesDetailResponse:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      posts:
+        items:
+          $ref: '#/definitions/dto.SeriesPostItem'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
   dto.SeriesInfo:
     properties:
       series_id:
@@ -217,11 +305,79 @@ definitions:
       series_title:
         type: string
     type: object
+  dto.SeriesNavPost:
+    properties:
+      id:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.SeriesNavResponse:
+    properties:
+      current_order:
+        type: integer
+      next_post:
+        $ref: '#/definitions/dto.SeriesNavPost'
+      prev_post:
+        $ref: '#/definitions/dto.SeriesNavPost'
+      series_id:
+        type: integer
+      series_title:
+        type: string
+      total_posts:
+        type: integer
+    type: object
+  dto.SeriesPostItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      order:
+        type: integer
+      title:
+        type: string
+    type: object
+  dto.SeriesResponse:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      post_count:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
   dto.SuccessResponse:
     properties:
       data: {}
       status:
         type: string
+    type: object
+  dto.TagListResponse:
+    properties:
+      tags:
+        items:
+          $ref: '#/definitions/dto.TagResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  dto.TagResponse:
+    properties:
+      name:
+        type: string
+      post_count:
+        type: integer
     type: object
   dto.UpdateCommentRequest:
     properties:
@@ -301,7 +457,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.AuthResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthDataResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -326,7 +487,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MessageResponse'
+              type: object
         "401":
           description: Unauthorized
           schema:
@@ -358,7 +524,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthDataResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -392,7 +563,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.AuthResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthDataResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -417,7 +593,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.PostListResponse'
+                  type: array
+              type: object
         "401":
           description: Unauthorized
           schema:
@@ -443,13 +626,22 @@ paths:
         in: query
         name: page_size
         type: integer
+      - description: 태그 이름으로 거르기
+        in: query
+        name: tag
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PostListWithPagination'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostListWithPagination'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -479,7 +671,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.PostResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -555,7 +752,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PostResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -573,6 +775,62 @@ paths:
           schema:
             $ref: '#/definitions/dto.ErrorResponse'
       summary: 글 상세 조회
+      tags:
+      - Posts
+    patch:
+      consumes:
+      - application/json
+      description: 작성자가 글을 수정합니다
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: 글 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 수정할 내용
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: 글 수정
       tags:
       - Posts
     put:
@@ -602,7 +860,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PostResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -645,7 +908,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CommentListResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -684,7 +952,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CommentResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -726,10 +999,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+        "204":
+          description: No Content
         "400":
           description: Bad Request
           schema:
@@ -785,7 +1056,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.CommentResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -828,7 +1104,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LikeStatusResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -859,7 +1140,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LikeToggleResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -879,7 +1165,8 @@ paths:
       - Posts
   /posts/{id}/series-nav:
     get:
-      description: 게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다
+      description: 게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다. 글이 없거나, 볼 수 없거나, 시리즈에 없으면 data
+        는 null 입니다
       parameters:
       - description: 게시글 ID
         in: path
@@ -892,7 +1179,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SeriesNavResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -927,7 +1219,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PostListWithPagination'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostListWithPagination'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -962,7 +1259,12 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SeriesResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1000,7 +1302,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1040,7 +1347,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SeriesDetailResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1083,7 +1395,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SeriesResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1137,7 +1454,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1188,7 +1510,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1242,7 +1569,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.MessageResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1286,7 +1618,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TagListResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
@@ -1311,7 +1648,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ImageUploadResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1344,7 +1686,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1377,13 +1724,22 @@ paths:
         in: query
         name: page_size
         type: integer
+      - description: 태그 이름으로 거르기
+        in: query
+        name: tag
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.PostListWithPagination'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PostListWithPagination'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1410,7 +1766,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.SeriesResponse'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1439,7 +1802,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AvatarResponse'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -1502,7 +1870,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.AuthDataResponse'
+              type: object
         "400":
           description: Bad Request
           schema:

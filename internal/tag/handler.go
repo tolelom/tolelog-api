@@ -25,7 +25,7 @@ func NewHandler(service Service) *Handler {
 // @Produce      json
 // @Param        sort   query  string  false  "정렬 기준: popular(기본) 또는 name"
 // @Param        limit  query  int     false  "최대 반환 개수 (기본 50, 최대 200)"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.TagListResponse}
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /tags [get]
 func (h *Handler) GetTags(c *fiber.Ctx) error {
