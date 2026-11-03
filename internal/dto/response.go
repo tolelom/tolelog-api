@@ -26,3 +26,13 @@ type AuthDataResponse struct {
 	UserID       uint   `json:"user_id"`
 	AvatarURL    string `json:"avatar_url"`
 }
+
+func AuthDataFrom(r *AuthResponse) AuthDataResponse {
+	return AuthDataResponse{
+		AccessToken:  r.AccessToken,
+		RefreshToken: r.RefreshToken,
+		Username:     r.User.Username,
+		UserID:       r.User.ID,
+		AvatarURL:    r.User.AvatarURL,
+	}
+}

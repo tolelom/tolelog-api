@@ -99,12 +99,10 @@ func TestBuildCommentTree_NestedReplies(t *testing.T) {
 	if len(tree[0].Replies) != 1 {
 		t.Fatalf("expected 1 reply to root, got %d", len(tree[0].Replies))
 	}
-	// Note: nested replies are flattened into parent's replies in the current implementation
-	// because BuildCommentTree copies by value. The reply-to-reply (ID=3) is attached to ID=2
-	// in the map, but since ID=2 is already copied into ID=1's Replies, the nested reply
-	// won't appear in the final tree from a copy. Let's verify the map-based approach.
-	// Actually the current implementation copies by value so deep nesting won't propagate.
-	// This is acceptable for single-level replies which is the common pattern.
+	nested := tree[0].Replies[0].Replies
+	if len(nested) != 1 || nested[0].ID != 3 {
+		t.Fatalf("reply-to-reply must stay under its parent, got %+v", nested)
+	}
 }
 
 func TestBuildCommentTree_OrphanReply(t *testing.T) {

@@ -9,10 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// MaxFileSize is the maximum allowed file size (5MB).
+// publicURLPrefix 는 라우터가 업로드 디렉터리를 내보내는 경로다.
+const publicURLPrefix = "/uploads/images/"
+
+func PublicURL(filename string) string {
+	return publicURLPrefix + filename
+}
+
 const MaxFileSize = 5 * 1024 * 1024
 
-// AllowedMIMETypes maps MIME types to their canonical file extensions.
 var AllowedMIMETypes = map[string]string{
 	"image/jpeg": ".jpg",
 	"image/png":  ".png",
@@ -20,8 +25,7 @@ var AllowedMIMETypes = map[string]string{
 	"image/webp": ".webp",
 }
 
-// DetectMIME reads the first 512 bytes of the file to detect its actual MIME type.
-// This is more reliable than trusting the client-provided Content-Type header.
+// DetectMIME 은 클라이언트가 보낸 Content-Type 대신 파일 앞 512바이트로 형식을 판단한다.
 func DetectMIME(file multipart.File) (string, error) {
 	buf := make([]byte, 512)
 	n, err := file.Read(buf)
@@ -29,7 +33,6 @@ func DetectMIME(file multipart.File) (string, error) {
 		return "", fmt.Errorf("파일 읽기 실패: %w", err)
 	}
 
-	// Seek back to beginning so the file can be saved later
 	if seeker, ok := file.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
 			return "", fmt.Errorf("파일 탐색 실패: %w", err)
@@ -39,8 +42,6 @@ func DetectMIME(file multipart.File) (string, error) {
 	return http.DetectContentType(buf[:n]), nil
 }
 
-// ValidateAndGenerateFilename validates the file size, detects the real MIME type,
-// and returns a UUID-based filename with the extension of the detected type.
 func ValidateAndGenerateFilename(header *multipart.FileHeader, file multipart.File) (string, error) {
 	if header.Size > MaxFileSize {
 		return "", fmt.Errorf("파일 크기는 5MB 이하여야 합니다")
@@ -56,8 +57,6 @@ func ValidateAndGenerateFilename(header *multipart.FileHeader, file multipart.Fi
 		return "", fmt.Errorf("허용되는 파일 형식: jpeg, png, gif, webp")
 	}
 
-	// The stored extension always follows the detected type: static serving
-	// derives Content-Type from it, so the client's name must not decide it.
-
+	// 정적 서빙은 확장자로 Content-Type 을 정하므로, 확장자는 클라이언트 파일명이 아니라 감지한 형식을 따른다.
 	return fmt.Sprintf("%s%s", uuid.New().String(), ext), nil
 }

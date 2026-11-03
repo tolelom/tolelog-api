@@ -857,3 +857,29 @@ func TestChangePassword_ServiceError(t *testing.T) {
 		t.Errorf("expected 500, got %d", resp.StatusCode)
 	}
 }
+
+// bcrypt 는 72바이트를 넘는 비밀번호를 해시하지 못한다. 128자 이하라도 한글 25자(75바이트)는
+// 서버 오류가 아니라 입력 오류로 돌려보내야 한다.
+func TestPasswordOverBcryptLimit_IsBadRequest(t *testing.T) {
+	longPassword := strings.Repeat("가", 25)
+	cases := []struct {
+		name, method, path, body string
+	}{
+		{"register", http.MethodPost, "/auth/register", `{"username":"test_user","password":"` + longPassword + `"}`},
+		{"change password", http.MethodPut, "/users/password", `{"current_password":"old-password","new_password":"` + longPassword + `"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupAuthApp(&mockAuthService{}, 1)
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", resp.StatusCode)
+			}
+		})
+	}
+}

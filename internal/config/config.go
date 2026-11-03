@@ -45,13 +45,11 @@ func LoadConfig() (*Config, error) {
 		if environment == "production" {
 			return nil, fmt.Errorf("JWT_SECRET 환경변수는 프로덕션 환경에서 필수입니다")
 		}
-		// 개발 환경에서만 임시 시크릿 허용 (서버 재시작마다 변경됨)
-		b := make([]byte, 32)
-		if _, err := rand.Read(b); err != nil {
+		var err error
+		if jwtSecret, err = randomSecret(); err != nil {
 			return nil, fmt.Errorf("JWT 시크릿 생성 실패: %w", err)
 		}
-		jwtSecret = hex.EncodeToString(b)
-		slog.Warn("JWT_SECRET이 설정되지 않았습니다. 개발용 임시 시크릿을 사용합니다.")
+		slog.Warn("JWT_SECRET이 설정되지 않았습니다. 개발용 임시 시크릿을 사용합니다(재시작하면 토큰이 무효가 됩니다).")
 	}
 
 	cfg := &Config{
@@ -107,7 +105,6 @@ func (c *Config) InitDataBase() error {
 
 	slog.Info("Database 연결 성공")
 
-	// DB Migration
 	if err := database.AutoMigrate(&model.User{}, &model.Post{}, &model.Tag{}, &model.Comment{}, &model.Series{}, &model.PostLike{}); err != nil {
 		return fmt.Errorf("자동 마이그레이션 실패: %v", err)
 	}
@@ -121,7 +118,6 @@ func (c *Config) InitDataBase() error {
 	return nil
 }
 
-// CloseDatabase closes the underlying sql.DB connection pool.
 func (c *Config) CloseDatabase() error {
 	if c.DB == nil {
 		return nil
@@ -179,6 +175,14 @@ func (c *Config) MigrateTagsData(db *gorm.DB) error {
 		slog.Info("태그 데이터 마이그레이션 완료")
 		return nil
 	})
+}
+
+func randomSecret() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func getEnv(key, defaultValue string) string {

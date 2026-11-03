@@ -2,35 +2,48 @@ package httputil
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/upload"
 	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// ErrResponseSent is returned when the HTTP response has already been sent.
+// ErrResponseSent means the helper has already written the error response; the handler should just return nil.
 var ErrResponseSent = errors.New("response already sent")
 
-// ParsePagination extracts page and pageSize from query parameters with defaults and bounds.
+const (
+	userIDKey       = "userID"
+	defaultPageSize = 10
+	maxPageSize     = 100
+)
+
+func SetUserID(c *fiber.Ctx, userID uint) {
+	c.Locals(userIDKey, userID)
+}
+
 func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 	page = c.QueryInt("page", 1)
-	pageSize = c.QueryInt("page_size", 10)
+	pageSize = c.QueryInt("page_size", defaultPageSize)
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
+	if pageSize < 1 || pageSize > maxPageSize {
+		pageSize = defaultPageSize
 	}
-	return
+	return page, pageSize
 }
 
-// BindAndValidate parses the request body into T and validates it.
-// On failure it sends a JSON error response and returns ErrResponseSent.
 func BindAndValidate[T any](c *fiber.Ctx) (*T, error) {
+	return BindAndValidateWithMessage[T](c, "요청 형식이 잘못되었습니다")
+}
+
+func BindAndValidateWithMessage[T any](c *fiber.Ctx, malformedMessage string) (*T, error) {
 	var req T
 	if err := c.BodyParser(&req); err != nil {
-		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", malformedMessage))
 		return nil, ErrResponseSent
 	}
 	if err := validate.Struct(&req); err != nil {
@@ -40,10 +53,8 @@ func BindAndValidate[T any](c *fiber.Ctx) (*T, error) {
 	return &req, nil
 }
 
-// RequireAuth extracts the authenticated userID from Fiber locals.
-// On failure it sends a 401 response and returns ErrResponseSent.
 func RequireAuth(c *fiber.Ctx) (uint, error) {
-	userID, ok := c.Locals("userID").(uint)
+	userID, ok := c.Locals(userIDKey).(uint)
 	if !ok {
 		_ = c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 		return 0, ErrResponseSent
@@ -51,8 +62,6 @@ func RequireAuth(c *fiber.Ctx) (uint, error) {
 	return userID, nil
 }
 
-// ParseID parses a numeric path parameter as an ID.
-// On failure it sends a 400 response with the given error code and message and returns ErrResponseSent.
 func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
 	id, err := strconv.ParseUint(c.Params(param), 10, 32)
 	if err != nil {
@@ -62,15 +71,13 @@ func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
 	return uint(id), nil
 }
 
-// OptionalUserID returns the authenticated userID set by OptionalAuthMiddleware, or nil for anonymous requests.
 func OptionalUserID(c *fiber.Ctx) *uint {
-	if userID, ok := c.Locals("userID").(uint); ok {
+	if userID, ok := c.Locals(userIDKey).(uint); ok {
 		return &userID
 	}
 	return nil
 }
 
-// NewPagination creates a Pagination struct from page, pageSize, and total.
 func NewPagination(page, pageSize int, total int64) dto.Pagination {
 	return dto.Pagination{
 		Page:       page,
@@ -78,4 +85,32 @@ func NewPagination(page, pageSize int, total int64) dto.Pagination {
 		Total:      total,
 		TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
 	}
+}
+
+// SaveImageUpload returns the public URL of the stored image.
+func SaveImageUpload(c *fiber.Ctx, field, dir string) (string, error) {
+	fileHeader, err := c.FormFile(field)
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
+		return "", ErrResponseSent
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
+		return "", ErrResponseSent
+	}
+	defer func() { _ = file.Close() }()
+
+	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
+		return "", ErrResponseSent
+	}
+
+	if err := c.SaveFile(fileHeader, filepath.Join(dir, filename)); err != nil {
+		_ = c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
+		return "", ErrResponseSent
+	}
+	return upload.PublicURL(filename), nil
 }

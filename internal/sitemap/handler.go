@@ -10,30 +10,23 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const siteURL = "https://blog.tolelom.xyz"
-
-// XML Sitemap structs (sitemaps.org protocol)
-
 type urlSet struct {
 	XMLName xml.Name   `xml:"urlset"`
 	XMLNS   string     `xml:"xmlns,attr"`
-	URLs    []siteURL_ `xml:"url"`
+	URLs    []urlEntry `xml:"url"`
 }
 
-type siteURL_ struct {
+type urlEntry struct {
 	Loc     string `xml:"loc"`
 	LastMod string `xml:"lastmod,omitempty"`
 }
 
-// Entry holds minimal data for sitemap generation.
-// Title 은 슬러그 생성에 사용된다.
 type Entry struct {
 	ID        uint
 	Title     string
 	UpdatedAt time.Time
 }
 
-// Repository abstracts DB access for sitemap generation.
 type Repository interface {
 	GetPublicPostEntries() ([]Entry, error)
 	GetSeriesEntries() ([]Entry, error)
@@ -48,7 +41,6 @@ func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
-// Sitemap godoc
 // @Summary      XML 사이트맵
 // @Description  공개 글과 시리즈의 URL을 XML 사이트맵 형식으로 반환합니다
 // @Tags         SEO
@@ -56,8 +48,8 @@ func NewHandler(repo Repository) *Handler {
 // @Success      200  {string}  string  "XML Sitemap"
 // @Router       /sitemap.xml [get]
 func (h *Handler) Sitemap(c *fiber.Ctx) error {
-	urls := []siteURL_{
-		{Loc: siteURL, LastMod: time.Now().Format(time.DateOnly)},
+	urls := []urlEntry{
+		{Loc: utils.SiteURL, LastMod: time.Now().Format(time.DateOnly)},
 	}
 
 	posts, err := h.repo.GetPublicPostEntries()
@@ -65,9 +57,8 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
 	for _, p := range posts {
-		// 캐노니컬 URL: /post/{slug}-{id} (슬러그 없으면 /post/{id}).
-		urls = append(urls, siteURL_{
-			Loc:     siteURL + utils.PostSlugPath(p.Title, p.ID),
+		urls = append(urls, urlEntry{
+			Loc:     utils.SiteURL + utils.PostSlugPath(p.Title, p.ID),
 			LastMod: p.UpdatedAt.Format(time.DateOnly),
 		})
 	}
@@ -77,8 +68,8 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
 	for _, s := range seriesList {
-		urls = append(urls, siteURL_{
-			Loc:     fmt.Sprintf("%s/series/%d", siteURL, s.ID),
+		urls = append(urls, urlEntry{
+			Loc:     fmt.Sprintf("%s/series/%d", utils.SiteURL, s.ID),
 			LastMod: s.UpdatedAt.Format(time.DateOnly),
 		})
 	}
@@ -88,8 +79,8 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("사이트맵 생성에 실패했습니다")
 	}
 	for _, a := range authors {
-		urls = append(urls, siteURL_{
-			Loc:     fmt.Sprintf("%s/user/%d", siteURL, a.ID),
+		urls = append(urls, urlEntry{
+			Loc:     fmt.Sprintf("%s/user/%d", utils.SiteURL, a.ID),
 			LastMod: a.UpdatedAt.Format(time.DateOnly),
 		})
 	}

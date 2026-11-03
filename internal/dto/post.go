@@ -10,11 +10,7 @@ import (
 const excerptMaxLen = 200
 
 func makeExcerpt(content string) string {
-	plain := utils.StripMarkdown(content)
-	if len([]rune(plain)) <= excerptMaxLen {
-		return plain
-	}
-	return string([]rune(plain)[:excerptMaxLen]) + "..."
+	return utils.Excerpt(content, excerptMaxLen)
 }
 
 type CreatePostRequest struct {
@@ -67,7 +63,7 @@ type PostListResponse struct {
 
 type PostListWithPagination struct {
 	Posts      []PostListResponse `json:"posts"`
-	Pagination Pagination        `json:"pagination"`
+	Pagination Pagination         `json:"pagination"`
 }
 
 type Pagination struct {
@@ -86,32 +82,23 @@ func tagsToString(tags []model.Tag) string {
 }
 
 func postSeriesInfo(p *model.Post) *SeriesInfo {
-	if p.SeriesID != nil && p.Series != nil {
-		order := 0
-		if p.SeriesOrder != nil {
-			order = *p.SeriesOrder
-		}
-		return &SeriesInfo{
-			SeriesID:    *p.SeriesID,
-			SeriesTitle: p.Series.Title,
-			SeriesOrder: order,
-		}
+	if p.SeriesID == nil || p.Series == nil {
+		return nil
 	}
-	return nil
+	return &SeriesInfo{
+		SeriesID:    *p.SeriesID,
+		SeriesTitle: p.Series.Title,
+		SeriesOrder: p.OrderInSeries(),
+	}
 }
 
 func PostToResponse(p *model.Post) PostResponse {
-	author := ""
-	if p.User.ID != 0 {
-		author = p.User.Username
-	}
-
 	return PostResponse{
 		ID:        p.ID,
 		Title:     p.Title,
 		Content:   p.Content,
 		UserID:    p.UserID,
-		Author:    author,
+		Author:    p.User.Username,
 		IsPublic:  p.IsPublic,
 		Status:    string(p.Status),
 		Tags:      tagsToString(p.Tags),
@@ -124,17 +111,12 @@ func PostToResponse(p *model.Post) PostResponse {
 }
 
 func PostToListResponse(p *model.Post) PostListResponse {
-	author := ""
-	if p.User.ID != 0 {
-		author = p.User.Username
-	}
-
 	return PostListResponse{
 		ID:        p.ID,
 		Title:     p.Title,
 		Excerpt:   makeExcerpt(p.Content),
 		UserID:    p.UserID,
-		Author:    author,
+		Author:    p.User.Username,
 		IsPublic:  p.IsPublic,
 		Status:    string(p.Status),
 		Tags:      tagsToString(p.Tags),

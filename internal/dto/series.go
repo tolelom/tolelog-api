@@ -74,16 +74,12 @@ type SeriesInfo struct {
 }
 
 func SeriesToResponse(s *model.Series, postCount int) SeriesResponse {
-	author := ""
-	if s.User.ID != 0 {
-		author = s.User.Username
-	}
 	return SeriesResponse{
 		ID:          s.ID,
 		Title:       s.Title,
 		Description: s.Description,
 		UserID:      s.UserID,
-		Author:      author,
+		Author:      s.User.Username,
 		PostCount:   postCount,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
@@ -91,21 +87,14 @@ func SeriesToResponse(s *model.Series, postCount int) SeriesResponse {
 }
 
 func SeriesToDetailResponse(s *model.Series, posts []model.Post) SeriesDetailResponse {
-	author := ""
-	if s.User.ID != 0 {
-		author = s.User.Username
-	}
 
 	items := make([]SeriesPostItem, len(posts))
-	for i, p := range posts {
-		order := 0
-		if p.SeriesOrder != nil {
-			order = *p.SeriesOrder
-		}
+	for i := range posts {
+		p := &posts[i]
 		items[i] = SeriesPostItem{
 			ID:        p.ID,
 			Title:     p.Title,
-			Order:     order,
+			Order:     p.OrderInSeries(),
 			CreatedAt: p.CreatedAt,
 		}
 	}
@@ -115,7 +104,7 @@ func SeriesToDetailResponse(s *model.Series, posts []model.Post) SeriesDetailRes
 		Title:       s.Title,
 		Description: s.Description,
 		UserID:      s.UserID,
-		Author:      author,
+		Author:      s.User.Username,
 		Posts:       items,
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,

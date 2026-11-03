@@ -1,6 +1,9 @@
 package utils
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestStripMarkdown(t *testing.T) {
 	tests := []struct {
@@ -17,5 +20,20 @@ func TestStripMarkdown(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("StripMarkdown(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
+	}
+}
+
+func TestExcerpt(t *testing.T) {
+	short := "짧은 글"
+	result := Excerpt(short, 200)
+	if result != short {
+		t.Errorf("excerpt short text = %q, want %q", result, short)
+	}
+
+	long := strings.Repeat("가", 250)
+	result = Excerpt(long, 200)
+	runes := []rune(result)
+	if len(runes) != 203 {
+		t.Errorf("excerpt long text rune length = %d, want 203", len(runes))
 	}
 }
