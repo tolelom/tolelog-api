@@ -83,12 +83,7 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 		return nil
 	}
 
-	var currentUserID *uint
-	if uid, ok := c.Locals("userID").(uint); ok {
-		currentUserID = &uid
-	}
-
-	p, err := h.service.GetPostByID(postID, currentUserID)
+	p, err := h.service.GetPostByID(postID, httputil.OptionalUserID(c))
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
@@ -162,12 +157,7 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 	page, pageSize := httputil.ParsePagination(c)
 	tag := c.Query("tag")
 
-	var currentUserID *uint
-	if uid, ok := c.Locals("userID").(uint); ok {
-		currentUserID = &uid
-	}
-
-	posts, total, err := h.service.GetUserPosts(userID, currentUserID, page, pageSize, tag)
+	posts, total, err := h.service.GetUserPosts(userID, httputil.OptionalUserID(c), page, pageSize, tag)
 	if err != nil {
 		if errors.Is(err, ErrInvalidTag) {
 			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
@@ -381,8 +371,8 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 	}
 
 	liked := false
-	if userID, ok := c.Locals("userID").(uint); ok {
-		liked, err = h.service.IsLiked(postID, userID)
+	if userID := httputil.OptionalUserID(c); userID != nil {
+		liked, err = h.service.IsLiked(postID, *userID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "좋아요 상태 조회에 실패했습니다"))
 		}

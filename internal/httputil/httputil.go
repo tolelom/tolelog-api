@@ -35,9 +35,14 @@ func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 // BindAndValidate parses the request body into T and validates it.
 // On failure it sends a JSON error response and returns ErrResponseSent.
 func BindAndValidate[T any](c *fiber.Ctx) (*T, error) {
+	return BindAndValidateWithMessage[T](c, "요청 형식이 잘못되었습니다")
+}
+
+// BindAndValidateWithMessage is BindAndValidate with a custom message for an unparsable body.
+func BindAndValidateWithMessage[T any](c *fiber.Ctx, malformedMessage string) (*T, error) {
 	var req T
 	if err := c.BodyParser(&req); err != nil {
-		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 잘못되었습니다"))
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", malformedMessage))
 		return nil, ErrResponseSent
 	}
 	if err := validate.Struct(&req); err != nil {
