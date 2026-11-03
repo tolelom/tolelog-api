@@ -17,7 +17,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// CreateSeries godoc
 // @Summary      시리즈 생성
 // @Description  새로운 시리즈를 생성합니다
 // @Tags         Series
@@ -58,7 +57,6 @@ func (h *Handler) CreateSeries(c *fiber.Ctx) error {
 	})
 }
 
-// GetSeries godoc
 // @Summary      시리즈 상세 조회
 // @Description  시리즈 ID로 시리즈 상세 정보와 포함된 글 목록을 조회합니다
 // @Tags         Series
@@ -89,7 +87,6 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 	})
 }
 
-// GetUserSeries godoc
 // @Summary      사용자 시리즈 목록 조회
 // @Description  특정 사용자의 시리즈 목록을 조회합니다
 // @Tags         Series
@@ -121,7 +118,6 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateSeries godoc
 // @Summary      시리즈 수정
 // @Description  작성자가 시리즈 정보를 수정합니다
 // @Tags         Series
@@ -176,7 +172,6 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteSeries godoc
 // @Summary      시리즈 삭제
 // @Description  작성자가 시리즈를 삭제합니다. 포함된 글은 삭제되지 않습니다.
 // @Tags         Series
@@ -218,7 +213,6 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 	})
 }
 
-// AddPostToSeries godoc
 // @Summary      시리즈에 글 추가
 // @Description  시리즈에 글을 추가합니다. 시리즈와 글 모두 본인 소유여야 합니다.
 // @Tags         Series
@@ -270,7 +264,6 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 	})
 }
 
-// RemovePostFromSeries godoc
 // @Summary      시리즈에서 글 제거
 // @Description  시리즈에서 글을 제거합니다. 글 자체는 삭제되지 않습니다.
 // @Tags         Series
@@ -318,7 +311,6 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 	})
 }
 
-// ReorderPosts godoc
 // @Summary      시리즈 글 순서 변경
 // @Description  시리즈에 포함된 글의 순서를 변경합니다
 // @Tags         Series
@@ -367,7 +359,6 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 	})
 }
 
-// GetSeriesNavigation godoc
 // @Summary      시리즈 네비게이션 조회
 // @Description  게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다
 // @Tags         Series

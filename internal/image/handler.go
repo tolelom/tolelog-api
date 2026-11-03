@@ -15,7 +15,6 @@ func NewHandler(uploadDir string) *Handler {
 	return &Handler{uploadDir: uploadDir}
 }
 
-// Upload godoc
 // @Summary      이미지 업로드
 // @Description  이미지 파일을 서버에 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
 // @Tags         Upload

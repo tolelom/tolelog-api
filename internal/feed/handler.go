@@ -48,7 +48,6 @@ func NewHandler(postService post.Service) *Handler {
 	return &Handler{postService: postService}
 }
 
-// Feed godoc
 // @Summary      RSS 피드
 // @Description  공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)
 // @Tags         Feed

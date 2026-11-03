@@ -19,7 +19,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// GetTags godoc
 // @Summary      태그 목록 조회
 // @Description  공개 글에 사용된 태그 목록을 사용 횟수와 함께 반환합니다
 // @Tags         Tags
