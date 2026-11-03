@@ -53,3 +53,16 @@ func TestStruct_MinMaxLength(t *testing.T) {
 		t.Error("expected error for name above max length")
 	}
 }
+
+type maxBytesStruct struct {
+	Password string `validate:"max_bytes=6"`
+}
+
+func TestStruct_MaxBytesCountsBytesNotRunes(t *testing.T) {
+	if err := Struct(maxBytesStruct{Password: "가나"}); err != nil {
+		t.Errorf("6바이트 한글 두 글자는 통과해야 한다: %v", err)
+	}
+	if err := Struct(maxBytesStruct{Password: "가나다"}); err == nil {
+		t.Error("9바이트 한글 세 글자는 막아야 한다")
+	}
+}
