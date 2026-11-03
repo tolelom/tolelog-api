@@ -12,6 +12,13 @@ import (
 // ErrResponseSent is returned when the HTTP response has already been sent.
 var ErrResponseSent = errors.New("response already sent")
 
+const userIDKey = "userID"
+
+// SetUserID records the authenticated user for RequireAuth and OptionalUserID.
+func SetUserID(c *fiber.Ctx, userID uint) {
+	c.Locals(userIDKey, userID)
+}
+
 // ParsePagination extracts page and pageSize from query parameters with defaults and bounds.
 func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 	page = c.QueryInt("page", 1)
@@ -43,7 +50,7 @@ func BindAndValidate[T any](c *fiber.Ctx) (*T, error) {
 // RequireAuth extracts the authenticated userID from Fiber locals.
 // On failure it sends a 401 response and returns ErrResponseSent.
 func RequireAuth(c *fiber.Ctx) (uint, error) {
-	userID, ok := c.Locals("userID").(uint)
+	userID, ok := c.Locals(userIDKey).(uint)
 	if !ok {
 		_ = c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증 정보가 없습니다"))
 		return 0, ErrResponseSent
@@ -64,7 +71,7 @@ func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
 
 // OptionalUserID returns the authenticated userID set by OptionalAuthMiddleware, or nil for anonymous requests.
 func OptionalUserID(c *fiber.Ctx) *uint {
-	if userID, ok := c.Locals("userID").(uint); ok {
+	if userID, ok := c.Locals(userIDKey).(uint); ok {
 		return &userID
 	}
 	return nil
