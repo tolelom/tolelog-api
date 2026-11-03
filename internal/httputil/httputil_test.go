@@ -20,7 +20,7 @@ func TestParsePagination_Defaults(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	app.Test(req) //nolint:errcheck
+	_, _ = app.Test(req)
 
 	if gotPage != 1 {
 		t.Errorf("expected default page=1, got %d", gotPage)
@@ -39,7 +39,7 @@ func TestParsePagination_Custom(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/?page=3&page_size=25", nil)
-	app.Test(req) //nolint:errcheck
+	_, _ = app.Test(req)
 
 	if gotPage != 3 {
 		t.Errorf("expected page=3, got %d", gotPage)
@@ -58,7 +58,7 @@ func TestParsePagination_PageBelowMin(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/?page=0", nil)
-	app.Test(req) //nolint:errcheck
+	_, _ = app.Test(req)
 
 	if gotPage != 1 {
 		t.Errorf("expected page clamped to 1, got %d", gotPage)
@@ -74,7 +74,7 @@ func TestParsePagination_PageSizeTooLarge(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/?page_size=500", nil)
-	app.Test(req) //nolint:errcheck
+	_, _ = app.Test(req)
 
 	if gotPageSize != 10 {
 		t.Errorf("expected pageSize clamped to 10, got %d", gotPageSize)
@@ -90,7 +90,7 @@ func TestParsePagination_PageSizeZero(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/?page_size=0", nil)
-	app.Test(req) //nolint:errcheck
+	_, _ = app.Test(req)
 
 	if gotPageSize != 10 {
 		t.Errorf("expected pageSize clamped to 10, got %d", gotPageSize)
