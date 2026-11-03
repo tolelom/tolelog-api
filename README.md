@@ -85,4 +85,4 @@ go run ./cmd/server
 | `go run ./cmd/server` | 서버 실행 |
 | `go test ./...` | 테스트(DB 테스트는 인메모리 SQLite) |
 | `golangci-lint run` | 린트(`.golangci.yml`) |
-| `swag init -g cmd/server/main.go` | Swagger 문서 생성 |
+| `swag init -g cmd/server/main.go --requiredByDefault` | Swagger 문서 생성 (tolelog-web 이 타입을 만드는 API 계약) |
