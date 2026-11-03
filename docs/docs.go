@@ -2390,6 +2390,13 @@ const docTemplate = `{
         },
         "dto.AuthDataResponse": {
             "type": "object",
+            "required": [
+                "access_token",
+                "avatar_url",
+                "refresh_token",
+                "user_id",
+                "username"
+            ],
             "properties": {
                 "access_token": {
                     "type": "string"
@@ -2410,6 +2417,9 @@ const docTemplate = `{
         },
         "dto.AvatarResponse": {
             "type": "object",
+            "required": [
+                "avatar_url"
+            ],
             "properties": {
                 "avatar_url": {
                     "type": "string"
@@ -2435,6 +2445,10 @@ const docTemplate = `{
         },
         "dto.CommentListResponse": {
             "type": "object",
+            "required": [
+                "comments",
+                "total"
+            ],
             "properties": {
                 "comments": {
                     "type": "array",
@@ -2449,6 +2463,19 @@ const docTemplate = `{
         },
         "dto.CommentResponse": {
             "type": "object",
+            "required": [
+                "author",
+                "avatar_url",
+                "content",
+                "created_at",
+                "id",
+                "is_edited",
+                "parent_id",
+                "post_id",
+                "replies",
+                "updated_at",
+                "user_id"
+            ],
             "properties": {
                 "author": {
                     "type": "string"
@@ -2469,7 +2496,8 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "parent_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "x-nullable": true
                 },
                 "post_id": {
                     "type": "integer"
@@ -2556,6 +2584,10 @@ const docTemplate = `{
         },
         "dto.ErrorResponse": {
             "type": "object",
+            "required": [
+                "error",
+                "status"
+            ],
             "properties": {
                 "error": {
                     "type": "string"
@@ -2570,6 +2602,9 @@ const docTemplate = `{
         },
         "dto.ImageUploadResponse": {
             "type": "object",
+            "required": [
+                "url"
+            ],
             "properties": {
                 "url": {
                     "type": "string"
@@ -2578,6 +2613,9 @@ const docTemplate = `{
         },
         "dto.LikeStatusResponse": {
             "type": "object",
+            "required": [
+                "liked"
+            ],
             "properties": {
                 "liked": {
                     "type": "boolean"
@@ -2586,6 +2624,10 @@ const docTemplate = `{
         },
         "dto.LikeToggleResponse": {
             "type": "object",
+            "required": [
+                "like_count",
+                "liked"
+            ],
             "properties": {
                 "like_count": {
                     "type": "integer"
@@ -2616,6 +2658,9 @@ const docTemplate = `{
         },
         "dto.MessageResponse": {
             "type": "object",
+            "required": [
+                "message"
+            ],
             "properties": {
                 "message": {
                     "type": "string"
@@ -2624,6 +2669,12 @@ const docTemplate = `{
         },
         "dto.Pagination": {
             "type": "object",
+            "required": [
+                "page",
+                "page_size",
+                "total",
+                "total_pages"
+            ],
             "properties": {
                 "page": {
                     "type": "integer"
@@ -2641,6 +2692,20 @@ const docTemplate = `{
         },
         "dto.PostListResponse": {
             "type": "object",
+            "required": [
+                "author",
+                "created_at",
+                "excerpt",
+                "id",
+                "is_public",
+                "like_count",
+                "status",
+                "tags",
+                "title",
+                "updated_at",
+                "user_id",
+                "view_count"
+            ],
             "properties": {
                 "author": {
                     "type": "string"
@@ -2685,6 +2750,10 @@ const docTemplate = `{
         },
         "dto.PostListWithPagination": {
             "type": "object",
+            "required": [
+                "pagination",
+                "posts"
+            ],
             "properties": {
                 "pagination": {
                     "$ref": "#/definitions/dto.Pagination"
@@ -2693,12 +2762,27 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.PostListResponse"
-                    }
+                    },
+                    "x-nullable": true
                 }
             }
         },
         "dto.PostResponse": {
             "type": "object",
+            "required": [
+                "author",
+                "content",
+                "created_at",
+                "id",
+                "is_public",
+                "like_count",
+                "status",
+                "tags",
+                "title",
+                "updated_at",
+                "user_id",
+                "view_count"
+            ],
             "properties": {
                 "author": {
                     "type": "string"
@@ -2787,6 +2871,16 @@ const docTemplate = `{
         },
         "dto.SeriesDetailResponse": {
             "type": "object",
+            "required": [
+                "author",
+                "created_at",
+                "description",
+                "id",
+                "posts",
+                "title",
+                "updated_at",
+                "user_id"
+            ],
             "properties": {
                 "author": {
                     "type": "string"
@@ -2819,6 +2913,11 @@ const docTemplate = `{
         },
         "dto.SeriesInfo": {
             "type": "object",
+            "required": [
+                "series_id",
+                "series_order",
+                "series_title"
+            ],
             "properties": {
                 "series_id": {
                     "type": "integer"
@@ -2833,6 +2932,10 @@ const docTemplate = `{
         },
         "dto.SeriesNavPost": {
             "type": "object",
+            "required": [
+                "id",
+                "title"
+            ],
             "properties": {
                 "id": {
                     "type": "integer"
@@ -2844,15 +2947,33 @@ const docTemplate = `{
         },
         "dto.SeriesNavResponse": {
             "type": "object",
+            "required": [
+                "current_order",
+                "next_post",
+                "prev_post",
+                "series_id",
+                "series_title",
+                "total_posts"
+            ],
             "properties": {
                 "current_order": {
                     "type": "integer"
                 },
                 "next_post": {
-                    "$ref": "#/definitions/dto.SeriesNavPost"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.SeriesNavPost"
+                        }
+                    ],
+                    "x-nullable": true
                 },
                 "prev_post": {
-                    "$ref": "#/definitions/dto.SeriesNavPost"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.SeriesNavPost"
+                        }
+                    ],
+                    "x-nullable": true
                 },
                 "series_id": {
                     "type": "integer"
@@ -2867,6 +2988,12 @@ const docTemplate = `{
         },
         "dto.SeriesPostItem": {
             "type": "object",
+            "required": [
+                "created_at",
+                "id",
+                "order",
+                "title"
+            ],
             "properties": {
                 "created_at": {
                     "type": "string"
@@ -2884,6 +3011,16 @@ const docTemplate = `{
         },
         "dto.SeriesResponse": {
             "type": "object",
+            "required": [
+                "author",
+                "created_at",
+                "description",
+                "id",
+                "post_count",
+                "title",
+                "updated_at",
+                "user_id"
+            ],
             "properties": {
                 "author": {
                     "type": "string"
@@ -2913,6 +3050,10 @@ const docTemplate = `{
         },
         "dto.SuccessResponse": {
             "type": "object",
+            "required": [
+                "data",
+                "status"
+            ],
             "properties": {
                 "data": {},
                 "status": {
@@ -2922,6 +3063,10 @@ const docTemplate = `{
         },
         "dto.TagListResponse": {
             "type": "object",
+            "required": [
+                "tags",
+                "total"
+            ],
             "properties": {
                 "tags": {
                     "type": "array",
@@ -2936,6 +3081,10 @@ const docTemplate = `{
         },
         "dto.TagResponse": {
             "type": "object",
+            "required": [
+                "name",
+                "post_count"
+            ],
             "properties": {
                 "name": {
                     "type": "string"
@@ -3003,6 +3152,13 @@ const docTemplate = `{
         },
         "dto.UserResponse": {
             "type": "object",
+            "required": [
+                "avatar_url",
+                "created_at",
+                "id",
+                "last_login",
+                "username"
+            ],
             "properties": {
                 "avatar_url": {
                     "type": "string"

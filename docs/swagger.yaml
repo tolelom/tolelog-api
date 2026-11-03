@@ -21,11 +21,19 @@ definitions:
         type: integer
       username:
         type: string
+    required:
+    - access_token
+    - avatar_url
+    - refresh_token
+    - user_id
+    - username
     type: object
   dto.AvatarResponse:
     properties:
       avatar_url:
         type: string
+    required:
+    - avatar_url
     type: object
   dto.ChangePasswordRequest:
     properties:
@@ -47,6 +55,9 @@ definitions:
         type: array
       total:
         type: integer
+    required:
+    - comments
+    - total
     type: object
   dto.CommentResponse:
     properties:
@@ -64,6 +75,7 @@ definitions:
         type: boolean
       parent_id:
         type: integer
+        x-nullable: true
       post_id:
         type: integer
       replies:
@@ -74,6 +86,18 @@ definitions:
         type: string
       user_id:
         type: integer
+    required:
+    - author
+    - avatar_url
+    - content
+    - created_at
+    - id
+    - is_edited
+    - parent_id
+    - post_id
+    - replies
+    - updated_at
+    - user_id
     type: object
   dto.CreateCommentRequest:
     properties:
@@ -130,16 +154,23 @@ definitions:
         type: string
       status:
         type: string
+    required:
+    - error
+    - status
     type: object
   dto.ImageUploadResponse:
     properties:
       url:
         type: string
+    required:
+    - url
     type: object
   dto.LikeStatusResponse:
     properties:
       liked:
         type: boolean
+    required:
+    - liked
     type: object
   dto.LikeToggleResponse:
     properties:
@@ -147,6 +178,9 @@ definitions:
         type: integer
       liked:
         type: boolean
+    required:
+    - like_count
+    - liked
     type: object
   dto.LoginRequest:
     properties:
@@ -166,6 +200,8 @@ definitions:
     properties:
       message:
         type: string
+    required:
+    - message
     type: object
   dto.Pagination:
     properties:
@@ -177,6 +213,11 @@ definitions:
         type: integer
       total_pages:
         type: integer
+    required:
+    - page
+    - page_size
+    - total
+    - total_pages
     type: object
   dto.PostListResponse:
     properties:
@@ -206,6 +247,19 @@ definitions:
         type: integer
       view_count:
         type: integer
+    required:
+    - author
+    - created_at
+    - excerpt
+    - id
+    - is_public
+    - like_count
+    - status
+    - tags
+    - title
+    - updated_at
+    - user_id
+    - view_count
     type: object
   dto.PostListWithPagination:
     properties:
@@ -215,6 +269,10 @@ definitions:
         items:
           $ref: '#/definitions/dto.PostListResponse'
         type: array
+        x-nullable: true
+    required:
+    - pagination
+    - posts
     type: object
   dto.PostResponse:
     properties:
@@ -244,6 +302,19 @@ definitions:
         type: integer
       view_count:
         type: integer
+    required:
+    - author
+    - content
+    - created_at
+    - id
+    - is_public
+    - like_count
+    - status
+    - tags
+    - title
+    - updated_at
+    - user_id
+    - view_count
     type: object
   dto.RefreshTokenRequest:
     properties:
@@ -295,6 +366,15 @@ definitions:
         type: string
       user_id:
         type: integer
+    required:
+    - author
+    - created_at
+    - description
+    - id
+    - posts
+    - title
+    - updated_at
+    - user_id
     type: object
   dto.SeriesInfo:
     properties:
@@ -304,6 +384,10 @@ definitions:
         type: integer
       series_title:
         type: string
+    required:
+    - series_id
+    - series_order
+    - series_title
     type: object
   dto.SeriesNavPost:
     properties:
@@ -311,21 +395,35 @@ definitions:
         type: integer
       title:
         type: string
+    required:
+    - id
+    - title
     type: object
   dto.SeriesNavResponse:
     properties:
       current_order:
         type: integer
       next_post:
-        $ref: '#/definitions/dto.SeriesNavPost'
+        allOf:
+        - $ref: '#/definitions/dto.SeriesNavPost'
+        x-nullable: true
       prev_post:
-        $ref: '#/definitions/dto.SeriesNavPost'
+        allOf:
+        - $ref: '#/definitions/dto.SeriesNavPost'
+        x-nullable: true
       series_id:
         type: integer
       series_title:
         type: string
       total_posts:
         type: integer
+    required:
+    - current_order
+    - next_post
+    - prev_post
+    - series_id
+    - series_title
+    - total_posts
     type: object
   dto.SeriesPostItem:
     properties:
@@ -337,6 +435,11 @@ definitions:
         type: integer
       title:
         type: string
+    required:
+    - created_at
+    - id
+    - order
+    - title
     type: object
   dto.SeriesResponse:
     properties:
@@ -356,12 +459,24 @@ definitions:
         type: string
       user_id:
         type: integer
+    required:
+    - author
+    - created_at
+    - description
+    - id
+    - post_count
+    - title
+    - updated_at
+    - user_id
     type: object
   dto.SuccessResponse:
     properties:
       data: {}
       status:
         type: string
+    required:
+    - data
+    - status
     type: object
   dto.TagListResponse:
     properties:
@@ -371,6 +486,9 @@ definitions:
         type: array
       total:
         type: integer
+    required:
+    - tags
+    - total
     type: object
   dto.TagResponse:
     properties:
@@ -378,6 +496,9 @@ definitions:
         type: string
       post_count:
         type: integer
+    required:
+    - name
+    - post_count
     type: object
   dto.UpdateCommentRequest:
     properties:
@@ -431,6 +552,12 @@ definitions:
         type: string
       username:
         type: string
+    required:
+    - avatar_url
+    - created_at
+    - id
+    - last_login
+    - username
     type: object
 host: tolelom.xyz
 info:

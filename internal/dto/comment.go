@@ -7,7 +7,7 @@ import (
 
 type CreateCommentRequest struct {
 	Content  string `json:"content" validate:"required,min=1,max=2000"`
-	ParentID *uint  `json:"parent_id" validate:"omitempty"`
+	ParentID *uint  `json:"parent_id,omitempty" validate:"omitempty"`
 }
 
 type UpdateCommentRequest struct {
@@ -18,7 +18,7 @@ type CommentResponse struct {
 	ID        uint              `json:"id"`
 	PostID    uint              `json:"post_id"`
 	UserID    uint              `json:"user_id"`
-	ParentID  *uint             `json:"parent_id"`
+	ParentID  *uint             `json:"parent_id" extensions:"x-nullable"`
 	Author    string            `json:"author"`
 	AvatarURL string            `json:"avatar_url"`
 	Content   string            `json:"content"`

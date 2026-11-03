@@ -26,6 +26,11 @@ jobs:
           # latest 는 새 릴리스가 나오는 날 코드 변경 없이 main CI 를 깨뜨릴 수 있어 고정한다.
           version: v2.14.0
 
+      - name: Swagger 문서 최신 여부 확인
+        run: |
+          go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/server/main.go --requiredByDefault
+          git diff --exit-code -- docs/
+
   test:
     runs-on: ubuntu-latest
     needs: lint
