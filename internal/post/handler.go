@@ -86,7 +86,7 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 	p, err := h.service.GetPostByID(postID, httputil.OptionalUserID(c))
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
+			return respondPostNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 볼 권한이 없습니다"))
@@ -116,24 +116,10 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 
 	posts, total, err := h.service.GetPublicPosts(page, pageSize, tag)
 	if err != nil {
-		if errors.Is(err, ErrInvalidTag) {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 목록 조회에 실패했습니다"))
+		return respondPostListError(c, err)
 	}
 
-	var postResponses []dto.PostListResponse
-	for _, p := range posts {
-		postResponses = append(postResponses, dto.PostToListResponse(&p))
-	}
-
-	return c.JSON(dto.SuccessResponse{
-		Status: "success",
-		Data: dto.PostListWithPagination{
-			Posts:      postResponses,
-			Pagination: httputil.NewPagination(page, pageSize, total),
-		},
-	})
+	return respondPostPage(c, posts, page, pageSize, total)
 }
 
 // GetUserPosts godoc
@@ -159,24 +145,10 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 
 	posts, total, err := h.service.GetUserPosts(userID, httputil.OptionalUserID(c), page, pageSize, tag)
 	if err != nil {
-		if errors.Is(err, ErrInvalidTag) {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 목록 조회에 실패했습니다"))
+		return respondPostListError(c, err)
 	}
 
-	var postResponses []dto.PostListResponse
-	for _, p := range posts {
-		postResponses = append(postResponses, dto.PostToListResponse(&p))
-	}
-
-	return c.JSON(dto.SuccessResponse{
-		Status: "success",
-		Data: dto.PostListWithPagination{
-			Posts:      postResponses,
-			Pagination: httputil.NewPagination(page, pageSize, total),
-		},
-	})
+	return respondPostPage(c, posts, page, pageSize, total)
 }
 
 // SearchPosts godoc
@@ -205,18 +177,7 @@ func (h *Handler) SearchPosts(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("search_failed", "검색에 실패했습니다"))
 	}
 
-	var postResponses []dto.PostListResponse
-	for _, p := range posts {
-		postResponses = append(postResponses, dto.PostToListResponse(&p))
-	}
-
-	return c.JSON(dto.SuccessResponse{
-		Status: "success",
-		Data: dto.PostListWithPagination{
-			Posts:      postResponses,
-			Pagination: httputil.NewPagination(page, pageSize, total),
-		},
-	})
+	return respondPostPage(c, posts, page, pageSize, total)
 }
 
 // UpdatePost godoc
@@ -254,7 +215,7 @@ func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 	updatedPost, err := h.service.UpdatePost(postID, userID, req)
 	if err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
+			return respondPostNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 수정할 권한이 없습니다"))
@@ -301,7 +262,7 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 
 	if err := h.service.DeletePost(postID, userID); err != nil {
 		if errors.Is(err, ErrPostNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
+			return respondPostNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 글을 삭제할 권한이 없습니다"))
@@ -338,7 +299,7 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 
 	liked, likeCount, err := h.service.ToggleLike(postID, userID)
 	if errors.Is(err, ErrPostNotFound) {
-		return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
+		return respondPostNotFound(c)
 	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("like_failed", "좋아요 처리에 실패했습니다"))
@@ -418,4 +379,29 @@ func (h *Handler) GetDrafts(c *fiber.Ctx) error {
 func respondTagTooLong(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag",
 		fmt.Sprintf("태그는 %d자 이하여야 합니다", model.TagNameMaxRunes)))
+}
+
+func respondPostPage(c *fiber.Ctx, posts []model.Post, page, pageSize int, total int64) error {
+	var items []dto.PostListResponse
+	for i := range posts {
+		items = append(items, dto.PostToListResponse(&posts[i]))
+	}
+	return c.JSON(dto.SuccessResponse{
+		Status: "success",
+		Data: dto.PostListWithPagination{
+			Posts:      items,
+			Pagination: httputil.NewPagination(page, pageSize, total),
+		},
+	})
+}
+
+func respondPostListError(c *fiber.Ctx, err error) error {
+	if errors.Is(err, ErrInvalidTag) {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_tag", "유효하지 않은 태그 파라미터입니다"))
+	}
+	return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "글 목록 조회에 실패했습니다"))
+}
+
+func respondPostNotFound(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "글을 찾을 수 없습니다"))
 }

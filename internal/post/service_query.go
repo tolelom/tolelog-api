@@ -5,6 +5,8 @@ import (
 	"strings"
 	"tolelom_api/internal/model"
 	"unicode/utf8"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -45,79 +47,54 @@ func SanitizeTag(tag string) (string, error) {
 	return tag, nil
 }
 
-// GetPublicPosts - 공개 글 목록 조회 (페이지네이션, 태그 필터)
 func (s *service) GetPublicPosts(page, pageSize int, tag string) ([]model.Post, int64, error) {
-	var posts []model.Post
-	var total int64
-
-	query := s.db.Scopes(model.PublicPosts)
-	if tag != "" {
-		sanitized, err := SanitizeTag(tag)
-		if err != nil {
-			return nil, 0, err
-		}
-		if sanitized != "" {
-			query = query.Where("id IN (?)",
-				s.db.Table("post_tags").
-					Select("post_tags.post_id").
-					Joins("JOIN tags ON tags.id = post_tags.tag_id").
-					Where("tags.name = ?", sanitized))
-		}
-	}
-
-	if err := query.Model(&model.Post{}).Count(&total).Error; err != nil {
+	query, err := s.taggedWith(s.db.Model(&model.Post{}).Scopes(model.PublicPosts), tag)
+	if err != nil {
 		return nil, 0, err
 	}
-
-	offset := (page - 1) * pageSize
-	if err := query.Preload("User").Preload("Tags").Preload("Series").
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&posts).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return posts, total, nil
+	return newestFirstPage(query, page, pageSize)
 }
 
-// GetUserPosts - 특정 사용자의 글 목록 조회 (페이지네이션, 태그 필터)
 func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize int, tag string) ([]model.Post, int64, error) {
-	var posts []model.Post
-	var total int64
-
 	query := s.db.Model(&model.Post{}).Where("user_id = ?", userID)
-
 	if currentUserID == nil || *currentUserID != userID {
 		query = query.Scopes(model.PublicPosts)
 	}
-	if tag != "" {
-		sanitized, err := SanitizeTag(tag)
-		if err != nil {
-			return nil, 0, err
-		}
-		if sanitized != "" {
-			query = query.Where("id IN (?)",
-				s.db.Table("post_tags").
-					Select("post_tags.post_id").
-					Joins("JOIN tags ON tags.id = post_tags.tag_id").
-					Where("tags.name = ?", sanitized))
-		}
+	query, err := s.taggedWith(query, tag)
+	if err != nil {
+		return nil, 0, err
 	}
+	return newestFirstPage(query, page, pageSize)
+}
 
+// taggedWith narrows query to posts carrying tag. An empty tag leaves it unchanged.
+func (s *service) taggedWith(query *gorm.DB, tag string) (*gorm.DB, error) {
+	sanitized, err := SanitizeTag(tag)
+	if err != nil || sanitized == "" {
+		return query, err
+	}
+	return query.Where("id IN (?)",
+		s.db.Table("post_tags").
+			Select("post_tags.post_id").
+			Joins("JOIN tags ON tags.id = post_tags.tag_id").
+			Where("tags.name = ?", sanitized)), nil
+}
+
+// newestFirstPage returns one page of query's posts with their details, and the total match count.
+func newestFirstPage(query *gorm.DB, page, pageSize int) ([]model.Post, int64, error) {
+	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	offset := (page - 1) * pageSize
-	if err := query.Preload("User").Preload("Tags").Preload("Series").
+	var posts []model.Post
+	if err := query.Scopes(withDetails).
 		Order("created_at DESC").
-		Offset(offset).
+		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Find(&posts).Error; err != nil {
 		return nil, 0, err
 	}
-
 	return posts, total, nil
 }
 
@@ -129,28 +106,11 @@ func escapeLike(s string) string {
 	return s
 }
 
-// SearchPosts - 공개 글 검색 (제목/본문 LIKE, 페이지네이션)
 func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, int64, error) {
-	var posts []model.Post
-	var total int64
-
 	likeQuery := "%" + escapeLike(query) + "%"
-	q := s.db.Scopes(model.PublicPosts).Where("title LIKE ? OR content LIKE ?", likeQuery, likeQuery)
-
-	if err := q.Model(&model.Post{}).Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	offset := (page - 1) * pageSize
-	if err := q.Preload("User").Preload("Tags").Preload("Series").
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&posts).Error; err != nil {
-		return nil, 0, err
-	}
-
-	return posts, total, nil
+	matches := s.db.Model(&model.Post{}).Scopes(model.PublicPosts).
+		Where("title LIKE ? OR content LIKE ?", likeQuery, likeQuery)
+	return newestFirstPage(matches, page, pageSize)
 }
 
 // GetDrafts returns all draft posts for a user.

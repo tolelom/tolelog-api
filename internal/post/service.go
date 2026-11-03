@@ -2,6 +2,7 @@ package post
 
 import (
 	"errors"
+	"log/slog"
 	"strings"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
@@ -40,6 +41,11 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
+// withDetails loads what post responses show besides the post row itself.
+func withDetails(db *gorm.DB) *gorm.DB {
+	return db.Preload("User").Preload("Tags").Preload("Series")
+}
+
 func splitTags(tagsStr string) []string {
 	var result []string
 	for _, t := range strings.Split(tagsStr, ",") {
@@ -51,89 +57,116 @@ func splitTags(tagsStr string) []string {
 	return result
 }
 
-func (s *service) syncTags(db *gorm.DB, post *model.Post, tagsStr string) error {
+// syncTags makes the post's tags exactly the comma-separated names, creating missing tags.
+func syncTags(tx *gorm.DB, post *model.Post, tagsStr string) error {
 	tagNames := splitTags(tagsStr)
+	tags := make([]model.Tag, 0, len(tagNames))
 	for _, name := range tagNames {
 		if utf8.RuneCountInString(name) > model.TagNameMaxRunes {
 			return ErrTagTooLong
 		}
-	}
-	if len(tagNames) == 0 {
-		return db.Model(post).Association("Tags").Clear()
-	}
-	var tags []model.Tag
-	for _, name := range tagNames {
 		var tag model.Tag
-		if err := db.Where("name = ?", name).FirstOrCreate(&tag, model.Tag{Name: name}).Error; err != nil {
+		if err := tx.Where("name = ?", name).FirstOrCreate(&tag, model.Tag{Name: name}).Error; err != nil {
 			return err
 		}
 		tags = append(tags, tag)
 	}
-	return db.Model(post).Association("Tags").Replace(tags)
+	return tx.Model(post).Association("Tags").Replace(tags)
 }
 
-// CreatePost - 새 글 생성
+// findPost returns ErrPostNotFound for a missing or deleted post.
+func (s *service) findPost(db *gorm.DB, postID uint) (*model.Post, error) {
+	var post model.Post
+	if err := db.First(&post, postID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPostNotFound
+		}
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (s *service) findOwnPost(postID, userID uint) (*model.Post, error) {
+	post, err := s.findPost(s.db, postID)
+	if err != nil {
+		return nil, err
+	}
+	if post.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+	return post, nil
+}
+
+// CreatePost defaults an unset status to published and fills post with its stored details.
 func (s *service) CreatePost(post *model.Post) error {
 	if post.Status == "" {
 		post.Status = model.PostStatusPublished
 	}
 
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(post).Error; err != nil {
 			return err
 		}
-		// Sync tags from TagsRaw
 		if post.TagsRaw != "" {
-			if err := s.syncTags(tx, post, post.TagsRaw); err != nil {
+			if err := syncTags(tx, post, post.TagsRaw); err != nil {
 				return err
 			}
 		}
-		// Reload with User and Tags
-		if err := tx.Preload("User").Preload("Tags").Preload("Series").First(post, post.ID).Error; err != nil {
-			return err
-		}
-		return nil
+		return tx.Scopes(withDetails).First(post, post.ID).Error
 	})
-	return err
 }
 
-// GetPostByID - ID로 글 조회
+// GetPostByID counts a view for every successful read.
 func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
-	var post model.Post
-	if err := s.db.Preload("User").Preload("Tags").Preload("Series").First(&post, postID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrPostNotFound
-		}
+	post, err := s.findPost(s.db.Scopes(withDetails), postID)
+	if err != nil {
 		return nil, err
 	}
-
 	if !post.VisibleTo(userID) {
 		return nil, ErrUnauthorized
 	}
 
-	// Increment view count
-	_ = s.db.Model(&model.Post{}).Where("id = ?", postID).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
-	post.ViewCount++
-
-	return &post, nil
+	// 조회수는 덜 세어도 글은 보여 준다.
+	if err := s.db.Model(&model.Post{}).Where("id = ?", postID).
+		UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error; err != nil {
+		slog.Warn("조회수 증가 실패", "post_id", postID, "error", err)
+	} else {
+		post.ViewCount++
+	}
+	return post, nil
 }
 
-// UpdatePost - 글 수정
 func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostRequest) (*model.Post, error) {
-	var post model.Post
-	if err := s.db.First(&post, postID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrPostNotFound
-		}
+	post, err := s.findOwnPost(postID, userID)
+	if err != nil {
 		return nil, err
 	}
 
-	if post.UserID != userID {
-		return nil, ErrUnauthorized
+	updates := changedPostColumns(req)
+	if len(updates) == 0 {
+		return nil, ErrNoFieldsToUpdate
 	}
 
-	updates := map[string]interface{}{}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(post).Updates(updates).Error; err != nil {
+			return err
+		}
+		if req.Tags != nil {
+			if err := syncTags(tx, post, *req.Tags); err != nil {
+				return err
+			}
+		}
+		post, err = s.findPost(tx.Scopes(withDetails), postID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return post, nil
+}
 
+func changedPostColumns(req *dto.UpdatePostRequest) map[string]any {
+	updates := map[string]any{}
 	if req.Title != nil {
 		updates["title"] = *req.Title
 	}
@@ -149,53 +182,13 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 	if req.Status != nil {
 		updates["status"] = *req.Status
 	}
-
-	if len(updates) == 0 {
-		return nil, ErrNoFieldsToUpdate
-	}
-
-	err := s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&post).Updates(updates).Error; err != nil {
-			return err
-		}
-
-		// Sync tags if tags were updated
-		if req.Tags != nil {
-			if err := s.syncTags(tx, &post, *req.Tags); err != nil {
-				return err
-			}
-		}
-
-		// Reload with User and Tags
-		if err := tx.Preload("User").Preload("Tags").Preload("Series").First(&post, postID).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrPostNotFound
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return &post, nil
+	return updates
 }
 
-// DeletePost - 글 삭제
 func (s *service) DeletePost(postID uint, userID uint) error {
-	var post model.Post
-	if err := s.db.First(&post, postID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrPostNotFound
-		}
+	post, err := s.findOwnPost(postID, userID)
+	if err != nil {
 		return err
 	}
-
-	if post.UserID != userID {
-		return ErrUnauthorized
-	}
-
-	return s.db.Delete(&post).Error
+	return s.db.Delete(post).Error
 }
