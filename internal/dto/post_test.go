@@ -2,7 +2,7 @@ package dto
 
 import (
 	"testing"
-	"tolelom_api/internal/utils"
+	"tolelom_api/internal/markdown"
 )
 
 func TestMakeExcerpt(t *testing.T) {
@@ -20,7 +20,7 @@ func TestMakeExcerpt(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := makeExcerpt(tt.content)
 			if tt.wantFull {
-				stripped := utils.StripMarkdown(tt.content)
+				stripped := markdown.Strip(tt.content)
 				if result != stripped {
 					t.Errorf("makeExcerpt(%q) = %q, want %q", tt.content, result, stripped)
 				}

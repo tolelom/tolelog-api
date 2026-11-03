@@ -3,6 +3,7 @@ package feed
 import (
 	"encoding/xml"
 	"time"
+	"tolelom_api/internal/markdown"
 	"tolelom_api/internal/post"
 	"tolelom_api/internal/utils"
 
@@ -66,7 +67,7 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 		items = append(items, rssItem{
 			Title:       p.Title,
 			Link:        postLink,
-			Description: utils.Excerpt(p.Content, excerptLength),
+			Description: markdown.Excerpt(p.Content, excerptLength),
 			Author:      p.User.Username,
 			PubDate:     p.CreatedAt.Format(time.RFC1123Z),
 			GUID:        postLink,

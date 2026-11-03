@@ -3,14 +3,14 @@ package dto
 import (
 	"strings"
 	"time"
+	"tolelom_api/internal/markdown"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 )
 
 const excerptMaxLen = 200
 
 func makeExcerpt(content string) string {
-	return utils.Excerpt(content, excerptMaxLen)
+	return markdown.Excerpt(content, excerptMaxLen)
 }
 
 type CreatePostRequest struct {
