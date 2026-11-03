@@ -56,7 +56,6 @@ func (r *gormRepository) GetSeriesEntries() ([]Entry, error) {
 		Scopes(model.PublicPosts)
 	err := r.db.Model(&model.Series{}).
 		Select("id, updated_at").
-		Where("series.deleted_at IS NULL").
 		Where("EXISTS (?)", hasPublicPost).
 		Order("updated_at DESC").
 		Find(&rows).Error
