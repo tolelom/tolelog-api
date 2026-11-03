@@ -3,8 +3,8 @@ package testutil
 import (
 	"testing"
 
+	"tolelom_api/internal/auth"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 )
 
 func TestMakeUser_CreatesUserWithValidBcryptHash(t *testing.T) {
@@ -18,7 +18,7 @@ func TestMakeUser_CreatesUserWithValidBcryptHash(t *testing.T) {
 		t.Fatalf("username = %q, want alice", u.Username)
 	}
 	// DefaultPassword 로 검증 가능한 bcrypt 해시여야 한다 (Login 테스트에서 사용)
-	if !utils.CheckPasswordHash(DefaultPassword, u.PasswordHash) {
+	if !auth.CheckPasswordHash(DefaultPassword, u.PasswordHash) {
 		t.Fatal("PasswordHash가 DefaultPassword와 불일치")
 	}
 }

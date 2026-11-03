@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"tolelom_api/internal/utils"
+	"tolelom_api/internal/permalink"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -41,15 +41,9 @@ func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
-// @Summary      XML 사이트맵
-// @Description  공개 글과 시리즈의 URL을 XML 사이트맵 형식으로 반환합니다
-// @Tags         SEO
-// @Produce      xml
-// @Success      200  {string}  string  "XML Sitemap"
-// @Router       /sitemap.xml [get]
 func (h *Handler) Sitemap(c *fiber.Ctx) error {
 	urls := []urlEntry{
-		{Loc: utils.SiteURL, LastMod: time.Now().Format(time.DateOnly)},
+		{Loc: permalink.SiteURL, LastMod: time.Now().Format(time.DateOnly)},
 	}
 
 	posts, err := h.repo.GetPublicPostEntries()
@@ -58,7 +52,7 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 	}
 	for _, p := range posts {
 		urls = append(urls, urlEntry{
-			Loc:     utils.SiteURL + utils.PostSlugPath(p.Title, p.ID),
+			Loc:     permalink.SiteURL + permalink.PostPath(p.Title, p.ID),
 			LastMod: p.UpdatedAt.Format(time.DateOnly),
 		})
 	}
@@ -69,7 +63,7 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 	}
 	for _, s := range seriesList {
 		urls = append(urls, urlEntry{
-			Loc:     fmt.Sprintf("%s/series/%d", utils.SiteURL, s.ID),
+			Loc:     fmt.Sprintf("%s/series/%d", permalink.SiteURL, s.ID),
 			LastMod: s.UpdatedAt.Format(time.DateOnly),
 		})
 	}
@@ -80,7 +74,7 @@ func (h *Handler) Sitemap(c *fiber.Ctx) error {
 	}
 	for _, a := range authors {
 		urls = append(urls, urlEntry{
-			Loc:     fmt.Sprintf("%s/user/%d", utils.SiteURL, a.ID),
+			Loc:     fmt.Sprintf("%s/user/%d", permalink.SiteURL, a.ID),
 			LastMod: a.UpdatedAt.Format(time.DateOnly),
 		})
 	}

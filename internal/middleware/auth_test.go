@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"tolelom_api/internal/auth"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -24,7 +24,7 @@ func setupTestApp(handler fiber.Handler) *fiber.App {
 
 func generateTestToken(userID uint, username string) string {
 	user := &model.User{ID: userID, Username: username}
-	token, _, _ := utils.GenerateTokenPair(user, testJWTSecret)
+	token, _, _ := auth.GenerateTokenPair(user, testJWTSecret)
 	return token
 }
 

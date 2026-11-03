@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"strings"
+	"tolelom_api/internal/auth"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,7 +17,7 @@ func OptionalAuthMiddleware(cfg *config.Config) fiber.Handler {
 		if !ok {
 			return c.Next()
 		}
-		if claims, err := utils.ValidateAccessToken(token, cfg.JWTSecret); err == nil {
+		if claims, err := auth.ValidateAccessToken(token, cfg.JWTSecret); err == nil {
 			httputil.SetUserID(c, claims.UserID)
 		}
 		return c.Next()
@@ -36,7 +36,7 @@ func AuthMiddleware(cfg *config.Config) fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_token_format", "올바른 형식은 'Bearer {token}' 입니다"))
 		}
 
-		claims, err := utils.ValidateAccessToken(token, cfg.JWTSecret)
+		claims, err := auth.ValidateAccessToken(token, cfg.JWTSecret)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_token", "유효하지 않은 토큰입니다"))
 		}

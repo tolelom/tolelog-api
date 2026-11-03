@@ -25,7 +25,7 @@ func NewHandler(service Service) *Handler {
 // @Produce      json
 // @Param        Authorization  header  string                  true  "Bearer token"
 // @Param        body           body    dto.CreatePostRequest   true  "글 내용"
-// @Success      201            {object}  dto.PostResponse
+// @Success      201  {object}  dto.SuccessResponse{data=dto.PostResponse}
 // @Failure      400            {object}  dto.ErrorResponse
 // @Failure      401            {object}  dto.ErrorResponse
 // @Failure      500            {object}  dto.ErrorResponse
@@ -69,7 +69,7 @@ func (h *Handler) CreatePost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        id             path    int     true   "글 ID"
 // @Param        Authorization  header  string  false  "Bearer token (비공개 글 조회 시 필요)"
-// @Success      200  {object}  dto.PostResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.PostResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
@@ -104,7 +104,8 @@ func (h *Handler) GetPost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        page       query  int  false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int  false  "페이지 크기 (기본값: 10)"
-// @Success      200  {object}  dto.PostListWithPagination
+// @Param        tag        query  string  false  "태그 이름으로 거르기"
+// @Success      200  {object}  dto.SuccessResponse{data=dto.PostListWithPagination}
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts [get]
 func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
@@ -126,7 +127,8 @@ func (h *Handler) GetPublicPosts(c *fiber.Ctx) error {
 // @Param        user_id    path   int  true   "사용자 ID"
 // @Param        page       query  int  false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int  false  "페이지 크기 (기본값: 10)"
-// @Success      200  {object}  dto.PostListWithPagination
+// @Param        tag        query  string  false  "태그 이름으로 거르기"
+// @Success      200  {object}  dto.SuccessResponse{data=dto.PostListWithPagination}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /users/{user_id}/posts [get]
@@ -151,10 +153,10 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 // @Description  제목 또는 본문에서 키워드로 공개 글을 검색합니다
 // @Tags         Posts
 // @Produce      json
-// @Param        q          query  string  true   "검색어 (2~100자)"
+// @Param        q          query  string  true   "검색어 (앞뒤 공백을 뺀 2~100자)"  minlength(2)  maxlength(100)
 // @Param        page       query  int     false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int     false  "페이지 크기 (기본값: 10)"
-// @Success      200  {object}  dto.PostListWithPagination
+// @Success      200  {object}  dto.SuccessResponse{data=dto.PostListWithPagination}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/search [get]
@@ -183,13 +185,14 @@ func (h *Handler) SearchPosts(c *fiber.Ctx) error {
 // @Param        Authorization  header  string                  true  "Bearer token"
 // @Param        id             path    int                     true  "글 ID"
 // @Param        body           body    dto.UpdatePostRequest   true  "수정할 내용"
-// @Success      200  {object}  dto.PostResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.PostResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id} [put]
+// @Router       /posts/{id} [patch]
 func (h *Handler) UpdatePost(c *fiber.Ctx) error {
 	userID, err := httputil.RequireAuth(c)
 	if err != nil {
@@ -272,7 +275,7 @@ func (h *Handler) DeletePost(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "글 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.LikeToggleResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
@@ -299,10 +302,7 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"liked":      liked,
-			"like_count": likeCount,
-		},
+		Data:   dto.LikeToggleResponse{Liked: liked, LikeCount: likeCount},
 	})
 }
 
@@ -312,7 +312,7 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        id             path    int     true   "글 ID"
 // @Param        Authorization  header  string  false  "Bearer token (로그인 시)"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.LikeStatusResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/like [get]
@@ -332,9 +332,7 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"liked": liked,
-		},
+		Data:   dto.LikeStatusResponse{Liked: liked},
 	})
 }
 
@@ -342,7 +340,7 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 // @Description  현재 로그인한 사용자의 초안 글 목록을 조회합니다
 // @Tags         Posts
 // @Produce      json
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=[]dto.PostListResponse}
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Security     BearerAuth

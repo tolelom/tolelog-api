@@ -7,17 +7,17 @@ import (
 
 type CreateSeriesRequest struct {
 	Title       string `json:"title" validate:"required,min=1,max=255"`
-	Description string `json:"description" validate:"max=2000"`
+	Description string `json:"description,omitempty" validate:"max=2000"`
 }
 
 type UpdateSeriesRequest struct {
-	Title       *string `json:"title" validate:"omitempty,min=1,max=255"`
-	Description *string `json:"description" validate:"omitempty,max=2000"`
+	Title       *string `json:"title,omitempty" validate:"omitempty,min=1,max=255"`
+	Description *string `json:"description,omitempty" validate:"omitempty,max=2000"`
 }
 
 type AddPostToSeriesRequest struct {
 	PostID uint `json:"post_id" validate:"required"`
-	Order  int  `json:"order"`
+	Order  int  `json:"order,omitempty"`
 }
 
 type ReorderPostsRequest struct {
@@ -63,8 +63,8 @@ type SeriesNavResponse struct {
 	SeriesTitle  string         `json:"series_title"`
 	CurrentOrder int            `json:"current_order"`
 	TotalPosts   int            `json:"total_posts"`
-	PrevPost     *SeriesNavPost `json:"prev_post"`
-	NextPost     *SeriesNavPost `json:"next_post"`
+	PrevPost     *SeriesNavPost `json:"prev_post" extensions:"x-nullable"`
+	NextPost     *SeriesNavPost `json:"next_post" extensions:"x-nullable"`
 }
 
 type SeriesInfo struct {

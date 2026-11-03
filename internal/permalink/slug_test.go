@@ -1,4 +1,4 @@
-package utils
+package permalink
 
 import "testing"
 
@@ -47,7 +47,7 @@ func TestSlugifyTruncation(t *testing.T) {
 	}
 }
 
-func TestPostSlugPath(t *testing.T) {
+func TestPostPath(t *testing.T) {
 	cases := []struct {
 		title string
 		id    uint
@@ -59,9 +59,9 @@ func TestPostSlugPath(t *testing.T) {
 		{"", 7, "/post/7"},
 	}
 	for _, tc := range cases {
-		got := PostSlugPath(tc.title, tc.id)
+		got := PostPath(tc.title, tc.id)
 		if got != tc.want {
-			t.Errorf("PostSlugPath(%q,%d) = %q, want %q", tc.title, tc.id, got, tc.want)
+			t.Errorf("PostPath(%q,%d) = %q, want %q", tc.title, tc.id, got, tc.want)
 		}
 	}
 }

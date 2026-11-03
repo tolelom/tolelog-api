@@ -3,30 +3,30 @@ package dto
 import (
 	"strings"
 	"time"
+	"tolelom_api/internal/markdown"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 )
 
 const excerptMaxLen = 200
 
 func makeExcerpt(content string) string {
-	return utils.Excerpt(content, excerptMaxLen)
+	return markdown.Excerpt(content, excerptMaxLen)
 }
 
 type CreatePostRequest struct {
 	Title    string `json:"title" validate:"required,min=1,max=255"`
 	Content  string `json:"content" validate:"required,min=1,max=500000"`
-	IsPublic bool   `json:"is_public"`
-	Tags     string `json:"tags" validate:"max=500"`
-	Status   string `json:"status" validate:"omitempty,oneof=draft published"`
+	IsPublic bool   `json:"is_public,omitempty"`
+	Tags     string `json:"tags,omitempty" validate:"max=500" extensions:"x-tag-max-runes=50"`
+	Status   string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
 
 type UpdatePostRequest struct {
-	Title    *string `json:"title" validate:"omitempty,min=1,max=255"`
-	Content  *string `json:"content" validate:"omitempty,min=1,max=500000"`
-	IsPublic *bool   `json:"is_public"`
-	Tags     *string `json:"tags" validate:"omitempty,max=500"`
-	Status   *string `json:"status" validate:"omitempty,oneof=draft published"`
+	Title    *string `json:"title,omitempty" validate:"omitempty,min=1,max=255"`
+	Content  *string `json:"content,omitempty" validate:"omitempty,min=1,max=500000"`
+	IsPublic *bool   `json:"is_public,omitempty"`
+	Tags     *string `json:"tags,omitempty" validate:"omitempty,max=500" extensions:"x-tag-max-runes=50"`
+	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
 
 type PostResponse struct {
@@ -62,7 +62,7 @@ type PostListResponse struct {
 }
 
 type PostListWithPagination struct {
-	Posts      []PostListResponse `json:"posts"`
+	Posts      []PostListResponse `json:"posts" extensions:"x-nullable"`
 	Pagination Pagination         `json:"pagination"`
 }
 
@@ -126,4 +126,13 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		CreatedAt: p.CreatedAt,
 		UpdatedAt: p.UpdatedAt,
 	}
+}
+
+type LikeToggleResponse struct {
+	Liked     bool `json:"liked"`
+	LikeCount uint `json:"like_count"`
+}
+
+type LikeStatusResponse struct {
+	Liked bool `json:"liked"`
 }

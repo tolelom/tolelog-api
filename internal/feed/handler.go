@@ -3,8 +3,9 @@ package feed
 import (
 	"encoding/xml"
 	"time"
+	"tolelom_api/internal/markdown"
+	"tolelom_api/internal/permalink"
 	"tolelom_api/internal/post"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -48,12 +49,6 @@ func NewHandler(postService post.Service) *Handler {
 	return &Handler{postService: postService}
 }
 
-// @Summary      RSS 피드
-// @Description  공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)
-// @Tags         Feed
-// @Produce      xml
-// @Success      200  {string}  string  "RSS 2.0 XML"
-// @Router       /feed [get]
 func (h *Handler) Feed(c *fiber.Ctx) error {
 	posts, _, err := h.postService.GetPublicPosts(1, rssItemLimit, "")
 	if err != nil {
@@ -62,11 +57,11 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 
 	items := make([]rssItem, 0, len(posts))
 	for _, p := range posts {
-		postLink := utils.SiteURL + utils.PostSlugPath(p.Title, p.ID)
+		postLink := permalink.SiteURL + permalink.PostPath(p.Title, p.ID)
 		items = append(items, rssItem{
 			Title:       p.Title,
 			Link:        postLink,
-			Description: utils.Excerpt(p.Content, excerptLength),
+			Description: markdown.Excerpt(p.Content, excerptLength),
 			Author:      p.User.Username,
 			PubDate:     p.CreatedAt.Format(time.RFC1123Z),
 			GUID:        postLink,
@@ -82,7 +77,7 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 		Version: "2.0",
 		Channel: rssChannel{
 			Title:         blogTitle,
-			Link:          utils.SiteURL,
+			Link:          permalink.SiteURL,
 			Description:   blogDesc,
 			Language:      "ko",
 			LastBuildDate: lastBuild,

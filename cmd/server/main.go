@@ -15,8 +15,8 @@ import (
 	"os/signal"
 	"syscall"
 	"tolelom_api/internal/config"
+	"tolelom_api/internal/observability"
 	"tolelom_api/internal/router"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -30,8 +30,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	utils.InitSentry()
-	defer utils.FlushSentry()
+	observability.InitSentry()
+	defer observability.FlushSentry()
 
 	if err := cfg.InitDataBase(); err != nil {
 		slog.Error("데이터베이스 연결 실패", "error", err)

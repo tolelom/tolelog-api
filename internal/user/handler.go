@@ -26,7 +26,7 @@ func NewHandler(authService AuthService, uploadDir string) *Handler {
 // @Accept       json
 // @Produce      json
 // @Param        body  body      dto.RegisterRequest  true  "회원가입 정보"
-// @Success      201   {object}  dto.AuthResponse
+// @Success      201  {object}  dto.SuccessResponse{data=dto.AuthDataResponse}
 // @Failure      400   {object}  dto.ErrorResponse
 // @Failure      409   {object}  dto.ErrorResponse
 // @Failure      500   {object}  dto.ErrorResponse
@@ -57,7 +57,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        body  body      dto.LoginRequest  true  "로그인 정보"
-// @Success      200   {object}  dto.AuthResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.AuthDataResponse}
 // @Failure      400   {object}  dto.ErrorResponse
 // @Failure      401   {object}  dto.ErrorResponse
 // @Failure      500   {object}  dto.ErrorResponse
@@ -88,7 +88,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 // @Accept       json
 // @Produce      json
 // @Param        body  body      dto.RefreshTokenRequest  true  "리프레시 토큰"
-// @Success      200   {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.AuthDataResponse}
 // @Failure      400   {object}  dto.ErrorResponse
 // @Failure      401   {object}  dto.ErrorResponse
 // @Failure      500   {object}  dto.ErrorResponse
@@ -118,7 +118,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 // @Tags         Users
 // @Produce      json
 // @Param        user_id  path      int  true  "유저 ID"
-// @Success      200      {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.UserResponse}
 // @Failure      400      {object}  dto.ErrorResponse
 // @Failure      404      {object}  dto.ErrorResponse
 // @Failure      500      {object}  dto.ErrorResponse
@@ -149,7 +149,7 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 // @Accept       multipart/form-data
 // @Produce      json
 // @Param        avatar  formData  file  true  "프로필 이미지 파일"
-// @Success      200     {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.AvatarResponse}
 // @Failure      400     {object}  dto.ErrorResponse
 // @Failure      401     {object}  dto.ErrorResponse
 // @Failure      500     {object}  dto.ErrorResponse
@@ -172,9 +172,7 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"avatar_url": avatarURL,
-		},
+		Data:   dto.AvatarResponse{AvatarURL: avatarURL},
 	})
 }
 
@@ -185,7 +183,7 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        Authorization  header  string                       true  "Bearer token"
 // @Param        body           body    dto.ChangePasswordRequest    true  "비밀번호 변경 정보"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.AuthDataResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -224,7 +222,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 // @Description  리프레시 토큰을 무효화합니다
 // @Tags         Auth
 // @Produce      json
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.MessageResponse}
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Security     BearerAuth
@@ -239,7 +237,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "로그아웃 되었습니다"},
+		Data:   dto.MessageResponse{Message: "로그아웃 되었습니다"},
 	})
 }
 

@@ -59,7 +59,9 @@ flowchart LR
 | `internal/dto` | 요청과 응답 타입 |
 | `internal/middleware` | 인증, 오류 처리, 패닉 복구, 보안 헤더, 요청 로그 |
 | `internal/config` | 환경 변수, DB 연결, 자동 마이그레이션 |
-| `internal/utils` | JWT, 비밀번호, 슬러그, Sentry |
+| `internal/auth` | JWT, 비밀번호 해시 |
+| `internal/markdown`, `internal/permalink` | 마크다운 발췌, 사이트 주소·슬러그·글 경로 |
+| `internal/observability` | Sentry 에러 리포팅 |
 | `internal/testutil` | 테스트용 인메모리 SQLite와 픽스처 |
 | `docs` | Swagger 문서(swag 생성) |
 
@@ -83,4 +85,4 @@ go run ./cmd/server
 | `go run ./cmd/server` | 서버 실행 |
 | `go test ./...` | 테스트(DB 테스트는 인메모리 SQLite) |
 | `golangci-lint run` | 린트(`.golangci.yml`) |
-| `swag init -g cmd/server/main.go` | Swagger 문서 생성 |
+| `swag init -g cmd/server/main.go --requiredByDefault` | Swagger 문서 생성 (tolelog-web 이 타입을 만드는 API 계약) |

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"tolelom_api/internal/auth"
 	"tolelom_api/internal/config"
 	"tolelom_api/internal/model"
 	"tolelom_api/internal/testutil"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -34,7 +34,7 @@ func newFlowApp(t *testing.T) (*fiber.App, *gorm.DB) {
 
 func accessToken(t *testing.T, u *model.User) string {
 	t.Helper()
-	access, _, err := utils.GenerateTokenPair(u, testJWTSecret)
+	access, _, err := auth.GenerateTokenPair(u, testJWTSecret)
 	if err != nil {
 		t.Fatalf("토큰 생성 실패: %v", err)
 	}

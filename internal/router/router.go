@@ -87,6 +87,7 @@ func Setup(app *fiber.App, cfg *config.Config) {
 	feedHandler := feed.NewHandler(postService)
 	sitemapHandler := sitemap.NewHandler(sitemap.NewRepository(cfg.DB))
 
+	// /api/v1 밖이라 Swagger(BasePath /api/v1) 에 싣지 않는다.
 	app.Get("/health", health)
 	app.Get("/health/ready", readiness(cfg.DB))
 	app.Get("/feed", feedHandler.Feed)
@@ -163,12 +164,6 @@ func newRateLimiter(maxPerMinute int, message string) fiber.Handler {
 	})
 }
 
-// @Summary		Health Check
-// @Description	서버의 health 상태를 반환합니다
-// @Tags			Health
-// @Produce		json
-// @Success		200	{object}	HealthResponse
-// @Router			/health [get]
 func health(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(HealthResponse{
 		Status:  "ok",
@@ -176,13 +171,6 @@ func health(c *fiber.Ctx) error {
 	})
 }
 
-// @Summary		Readiness Check
-// @Description	DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
-// @Tags			Health
-// @Produce		json
-// @Success		200	{object}	ReadinessResponse
-// @Failure		503	{object}	ReadinessResponse
-// @Router			/health/ready [get]
 func readiness(db *gorm.DB) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.UserContext(), readinessTimeout)

@@ -19,15 +19,15 @@ go run cmd/server/main.go
 go test -v ./...
 go test -v -cover ./...          # with coverage (used in CI)
 
-# Lint (golangci-lint: errcheck, govet, staticcheck, ineffassign, unused)
+# Lint (golangci-lint: errcheck, govet, staticcheck, ineffassign, unused, forbidigo — gorm DB.Save 금지)
 golangci-lint run
 
 # Dependencies
 go mod download
 go mod tidy
 
-# Regenerate Swagger docs (after changing handler annotations)
-swag init -g cmd/server/main.go
+# Regenerate Swagger docs (after changing handler annotations or DTOs; CI fails if docs/ is stale)
+swag init -g cmd/server/main.go --requiredByDefault
 
 # Dev with hot reload (requires air)
 air
@@ -49,8 +49,15 @@ air
 - `internal/validate/` — Shared `go-playground/validator` instance with custom `alphanum_underscore` and `max_bytes` (byte-length limit, e.g. bcrypt's 72 bytes) rules.
 - `internal/middleware/` — `auth.go` (required + optional auth), `security.go` (X-Content-Type-Options, X-Frame-Options, CSP, etc.), `logger.go` (request logging), `error.go` (global error handler).
 - `internal/upload/` — File type detection and MIME validation utilities. UUID-based filename generation (5MB max).
-- `internal/utils/` — JWT token pair generation/validation (HMAC-SHA256, 15min access + 7-day refresh, 5s clock skew) and bcrypt password helpers.
-- `docs/` — Auto-generated Swagger files. Do not edit manually.
+- `internal/auth/` — JWT token pair generation/validation (HMAC-SHA256, 15min access + 7-day refresh, 5s clock skew) and bcrypt password helpers.
+- `internal/markdown/` — Markdown stripping and plain-text excerpts (list excerpts, RSS descriptions).
+- `internal/permalink/` — Public site URL, title slugs, canonical post paths (`/post/{slug}-{id}`) for feed and sitemap.
+- `internal/observability/` — Sentry init/flush and `CaptureException` (falls back to slog when `SENTRY_DSN` is unset).
+- `docs/` — Auto-generated Swagger files. Do not edit manually. `docs/swagger.json` is the API contract tolelog-web generates its TS types from, so annotations must match what handlers return:
+  - Success bodies: `dto.SuccessResponse{data=dto.X}` (never bare `dto.X` or untyped `fiber.Map`).
+  - `--requiredByDefault` marks every field required unless its json tag has `omitempty`; give optional request fields `omitempty`.
+  - Fields that serialize as `null` (nil pointers/slices without `omitempty`) need `extensions:"x-nullable"`.
+  - Routes outside `/api/v1` (`/health`, `/feed`, `/sitemap.xml`) are not annotated.
 
 ## Route Groups
 

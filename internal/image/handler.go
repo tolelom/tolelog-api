@@ -21,7 +21,7 @@ func NewHandler(uploadDir string) *Handler {
 // @Accept       multipart/form-data
 // @Produce      json
 // @Param        image  formData  file  true  "업로드할 이미지 파일"
-// @Success      200    {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.ImageUploadResponse}
 // @Failure      400    {object}  dto.ErrorResponse
 // @Failure      401    {object}  dto.ErrorResponse
 // @Failure      500    {object}  dto.ErrorResponse
@@ -34,6 +34,6 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"url": url},
+		Data:   dto.ImageUploadResponse{URL: url},
 	})
 }

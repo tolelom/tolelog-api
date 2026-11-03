@@ -7,3 +7,21 @@ linters:
     - staticcheck
     - ineffassign
     - unused
+    - forbidigo
+    - nolintlint
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^gorm\.DB\.Save$
+          pkg: ^gorm\.io/gorm$
+          msg: >-
+            Save 는 행 전체를 다시 쓰고, 고칠 행이 없으면 INSERT 로 되살린다.
+            바꿀 칸만 Updates(map)·Update·UpdateColumn 으로 쓰고, 새 행은 Create 로 만든다.
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [forbidigo]
