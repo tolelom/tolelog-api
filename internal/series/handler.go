@@ -24,7 +24,7 @@ func NewHandler(service Service) *Handler {
 // @Produce      json
 // @Param        Authorization  header  string                    true  "Bearer token"
 // @Param        body           body    dto.CreateSeriesRequest   true  "시리즈 정보"
-// @Success      201  {object}  dto.SuccessResponse
+// @Success      201  {object}  dto.SuccessResponse{data=dto.SeriesResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
@@ -62,7 +62,7 @@ func (h *Handler) CreateSeries(c *fiber.Ctx) error {
 // @Tags         Series
 // @Produce      json
 // @Param        id  path  int  true  "시리즈 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.SeriesDetailResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      404  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
@@ -92,7 +92,7 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 // @Tags         Series
 // @Produce      json
 // @Param        user_id  path  int  true  "사용자 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=[]dto.SeriesResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /users/{user_id}/series [get]
@@ -126,7 +126,7 @@ func (h *Handler) GetUserSeries(c *fiber.Ctx) error {
 // @Param        Authorization  header  string                    true  "Bearer token"
 // @Param        id             path    int                       true  "시리즈 ID"
 // @Param        body           body    dto.UpdateSeriesRequest   true  "수정할 시리즈 정보"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.SeriesResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -178,7 +178,7 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "시리즈 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.MessageResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -221,7 +221,7 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 // @Param        Authorization  header  string                       true  "Bearer token"
 // @Param        id             path    int                          true  "시리즈 ID"
 // @Param        body           body    dto.AddPostToSeriesRequest   true  "추가할 글 정보"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.MessageResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -271,7 +271,7 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 // @Param        Authorization  header  string  true  "Bearer token"
 // @Param        id             path    int     true  "시리즈 ID"
 // @Param        post_id        path    int     true  "게시글 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.MessageResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -319,7 +319,7 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 // @Param        Authorization  header  string                     true  "Bearer token"
 // @Param        id             path    int                        true  "시리즈 ID"
 // @Param        body           body    dto.ReorderPostsRequest    true  "새로운 글 순서"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.MessageResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      401  {object}  dto.ErrorResponse
 // @Failure      403  {object}  dto.ErrorResponse
@@ -360,11 +360,11 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 }
 
 // @Summary      시리즈 네비게이션 조회
-// @Description  게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다
+// @Description  게시글이 속한 시리즈의 이전/다음 글 정보를 조회합니다. 글이 없거나, 볼 수 없거나, 시리즈에 없으면 data 는 null 입니다
 // @Tags         Series
 // @Produce      json
 // @Param        id  path  int  true  "게시글 ID"
-// @Success      200  {object}  dto.SuccessResponse
+// @Success      200  {object}  dto.SuccessResponse{data=dto.SeriesNavResponse}
 // @Failure      400  {object}  dto.ErrorResponse
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /posts/{id}/series-nav [get]
