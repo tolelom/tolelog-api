@@ -173,6 +173,9 @@ func (s *service) UpdatePost(postID uint, userID uint, req *dto.UpdatePostReques
 
 		return nil
 	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrPostNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
