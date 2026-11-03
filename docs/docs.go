@@ -245,72 +245,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/feed": {
-            "get": {
-                "description": "공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)",
-                "produces": [
-                    "text/xml"
-                ],
-                "tags": [
-                    "Feed"
-                ],
-                "summary": "RSS 피드",
-                "responses": {
-                    "200": {
-                        "description": "RSS 2.0 XML",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/health": {
-            "get": {
-                "description": "서버의 health 상태를 반환합니다",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Health Check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/router.HealthResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/health/ready": {
-            "get": {
-                "description": "DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Readiness Check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/router.ReadinessResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/router.ReadinessResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/posts": {
             "get": {
                 "description": "공개된 모든 글을 페이지네이션으로 조회합니다",
@@ -1580,26 +1514,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/sitemap.xml": {
-            "get": {
-                "description": "공개 글과 시리즈의 URL을 XML 사이트맵 형식으로 반환합니다",
-                "produces": [
-                    "text/xml"
-                ],
-                "tags": [
-                    "SEO"
-                ],
-                "summary": "XML 사이트맵",
-                "responses": {
-                    "200": {
-                        "description": "XML Sitemap",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/tags": {
             "get": {
                 "description": "공개 글에 사용된 태그 목록을 사용 횟수와 함께 반환합니다",
@@ -2400,32 +2314,6 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
-                }
-            }
-        },
-        "router.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Server is running"
-                },
-                "status": {
-                    "type": "string",
-                    "example": "ok"
-                }
-            }
-        },
-        "router.ReadinessResponse": {
-            "type": "object",
-            "properties": {
-                "database": {
-                    "type": "string",
-                    "example": "ok"
-                },
-                "status": {
-                    "type": "string",
-                    "example": "ok"
                 }
             }
         }
