@@ -49,12 +49,6 @@ func NewHandler(postService post.Service) *Handler {
 	return &Handler{postService: postService}
 }
 
-// @Summary      RSS 피드
-// @Description  공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)
-// @Tags         Feed
-// @Produce      xml
-// @Success      200  {string}  string  "RSS 2.0 XML"
-// @Router       /feed [get]
 func (h *Handler) Feed(c *fiber.Ctx) error {
 	posts, _, err := h.postService.GetPublicPosts(1, rssItemLimit, "")
 	if err != nil {
