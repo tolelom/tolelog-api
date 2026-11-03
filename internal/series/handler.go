@@ -209,7 +209,7 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "삭제되었습니다"},
+		Data:   dto.MessageResponse{Message: "삭제되었습니다"},
 	})
 }
 
@@ -260,7 +260,7 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "추가되었습니다"},
+		Data:   dto.MessageResponse{Message: "추가되었습니다"},
 	})
 }
 
@@ -307,7 +307,7 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "제거되었습니다"},
+		Data:   dto.MessageResponse{Message: "제거되었습니다"},
 	})
 }
 
@@ -355,7 +355,7 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "순서가 변경되었습니다"},
+		Data:   dto.MessageResponse{Message: "순서가 변경되었습니다"},
 	})
 }
 

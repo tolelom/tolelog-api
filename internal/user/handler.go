@@ -172,9 +172,7 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"avatar_url": avatarURL,
-		},
+		Data:   dto.AvatarResponse{AvatarURL: avatarURL},
 	})
 }
 
@@ -239,7 +237,7 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"message": "로그아웃 되었습니다"},
+		Data:   dto.MessageResponse{Message: "로그아웃 되었습니다"},
 	})
 }
 

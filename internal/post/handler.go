@@ -299,10 +299,7 @@ func (h *Handler) ToggleLike(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"liked":      liked,
-			"like_count": likeCount,
-		},
+		Data:   dto.LikeToggleResponse{Liked: liked, LikeCount: likeCount},
 	})
 }
 
@@ -332,9 +329,7 @@ func (h *Handler) GetLikeStatus(c *fiber.Ctx) error {
 
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"liked": liked,
-		},
+		Data:   dto.LikeStatusResponse{Liked: liked},
 	})
 }
 
