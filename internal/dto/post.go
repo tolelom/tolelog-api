@@ -10,11 +10,7 @@ import (
 const excerptMaxLen = 200
 
 func makeExcerpt(content string) string {
-	plain := utils.StripMarkdown(content)
-	if len([]rune(plain)) <= excerptMaxLen {
-		return plain
-	}
-	return string([]rune(plain)[:excerptMaxLen]) + "..."
+	return utils.Excerpt(content, excerptMaxLen)
 }
 
 type CreatePostRequest struct {

@@ -107,24 +107,3 @@ func TestFeed_ServiceError(t *testing.T) {
 		t.Errorf("status = %d, want 500", resp.StatusCode)
 	}
 }
-
-func TestExcerpt(t *testing.T) {
-	short := "짧은 글"
-	result := excerpt(short, 200)
-	if result != short {
-		t.Errorf("excerpt short text = %q, want %q", result, short)
-	}
-
-	long := ""
-	for i := 0; i < 250; i++ {
-		long += "가"
-	}
-	result = excerpt(long, 200)
-	runes := []rune(result)
-	// 200 chars + "..." (3 chars)
-	if len(runes) != 203 {
-		t.Errorf("excerpt long text rune length = %d, want 203", len(runes))
-	}
-}
-
-// uintToStr 헬퍼는 utils.PostSlugPath 도입으로 제거되었음. (옛 테스트는 삭제)
