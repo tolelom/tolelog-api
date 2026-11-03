@@ -78,7 +78,7 @@ func (h *Handler) GetSeries(c *fiber.Ctx) error {
 	series, posts, err := h.service.GetSeriesByID(seriesID, httputil.OptionalUserID(c))
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 조회에 실패했습니다"))
 	}
@@ -157,7 +157,7 @@ func (h *Handler) UpdateSeries(c *fiber.Ctx) error {
 	series, err := h.service.UpdateSeries(seriesID, userID, req)
 	if err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 시리즈를 수정할 권한이 없습니다"))
@@ -204,7 +204,7 @@ func (h *Handler) DeleteSeries(c *fiber.Ctx) error {
 
 	if err := h.service.DeleteSeries(seriesID, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "이 시리즈를 삭제할 권한이 없습니다"))
@@ -253,7 +253,7 @@ func (h *Handler) AddPostToSeries(c *fiber.Ctx) error {
 
 	if err := h.service.AddPostToSeries(seriesID, req.PostID, req.Order, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		if errors.Is(err, ErrPostNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("post_not_found", "게시글을 찾을 수 없습니다"))
@@ -304,7 +304,7 @@ func (h *Handler) RemovePostFromSeries(c *fiber.Ctx) error {
 
 	if err := h.service.RemovePostFromSeries(seriesID, postID, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "권한이 없습니다"))
@@ -353,7 +353,7 @@ func (h *Handler) ReorderPosts(c *fiber.Ctx) error {
 
 	if err := h.service.ReorderPosts(seriesID, req.PostIDs, userID); err != nil {
 		if errors.Is(err, ErrSeriesNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
+			return respondSeriesNotFound(c)
 		}
 		if errors.Is(err, ErrUnauthorized) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("forbidden", "권한이 없습니다"))
@@ -388,15 +388,12 @@ func (h *Handler) GetSeriesNavigation(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("fetch_failed", "시리즈 네비게이션 조회에 실패했습니다"))
 	}
 
-	if nav == nil {
-		return c.JSON(dto.SuccessResponse{
-			Status: "success",
-			Data:   nil,
-		})
-	}
-
 	return c.JSON(dto.SuccessResponse{
 		Status: "success",
 		Data:   nav,
 	})
+}
+
+func respondSeriesNotFound(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusNotFound).JSON(dto.NewErrorResponse("series_not_found", "시리즈를 찾을 수 없습니다"))
 }

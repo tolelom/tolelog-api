@@ -36,6 +36,21 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
+// findOwnedSeries returns ErrUnauthorized when the series belongs to someone else.
+func (s *service) findOwnedSeries(seriesID, userID uint) (*model.Series, error) {
+	var series model.Series
+	if err := s.db.First(&series, seriesID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSeriesNotFound
+		}
+		return nil, err
+	}
+	if series.UserID != userID {
+		return nil, ErrUnauthorized
+	}
+	return &series, nil
+}
+
 func (s *service) CreateSeries(series *model.Series) error {
 	if err := s.db.Create(series).Error; err != nil {
 		return err
@@ -46,7 +61,7 @@ func (s *service) CreateSeries(series *model.Series) error {
 // seriesPostsVisibleTo scopes a series' posts to what the viewer may see:
 // the series owner sees every post, others only public published ones.
 func (s *service) seriesPostsVisibleTo(series *model.Series, viewerID *uint) *gorm.DB {
-	query := s.db.Where("series_id = ? AND deleted_at IS NULL", series.ID)
+	query := s.db.Model(&model.Post{}).Where("series_id = ?", series.ID)
 	if viewerID == nil || *viewerID != series.UserID {
 		query = query.Scopes(model.PublicPosts)
 	}
@@ -111,16 +126,9 @@ func (s *service) GetSeriesByUserID(userID uint, viewerID *uint) ([]model.Series
 }
 
 func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeriesRequest) (*model.Series, error) {
-	var series model.Series
-	if err := s.db.First(&series, seriesID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrSeriesNotFound
-		}
+	series, err := s.findOwnedSeries(seriesID, userID)
+	if err != nil {
 		return nil, err
-	}
-
-	if series.UserID != userID {
-		return nil, ErrUnauthorized
 	}
 
 	updates := map[string]any{}
@@ -133,31 +141,24 @@ func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeries
 	// Save 는 고칠 행이 없으면(그 사이 삭제됨) INSERT … ON CONFLICT 로 행 전체를 다시 써서
 	// 지운 시리즈를 되살린다. 바꿀 칸만 쓴다.
 	if len(updates) > 0 {
-		if err := s.db.Model(&series).Updates(updates).Error; err != nil {
+		if err := s.db.Model(series).Updates(updates).Error; err != nil {
 			return nil, err
 		}
 	}
 
-	if err := s.db.Preload("User").First(&series, series.ID).Error; err != nil {
+	if err := s.db.Preload("User").First(series, series.ID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSeriesNotFound
 		}
 		return nil, err
 	}
-	return &series, nil
+	return series, nil
 }
 
 func (s *service) DeleteSeries(seriesID uint, userID uint) error {
-	var series model.Series
-	if err := s.db.First(&series, seriesID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrSeriesNotFound
-		}
+	series, err := s.findOwnedSeries(seriesID, userID)
+	if err != nil {
 		return err
-	}
-
-	if series.UserID != userID {
-		return ErrUnauthorized
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -166,26 +167,19 @@ func (s *service) DeleteSeries(seriesID uint, userID uint) error {
 			Updates(map[string]interface{}{"series_id": nil, "series_order": nil}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&series).Error
+		return tx.Delete(series).Error
 	})
 }
 
 // AddPostToSeries 는 order 가 0 이하면 순서를 정한다. 이미 같은 시리즈에 있는 글은 지금 자리를 지키고,
 // 새로 들어오는 글은 맨 뒤에 붙는다(에디터는 저장할 때마다 order 0 으로 부른다).
 func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID uint) error {
-	var series model.Series
-	if err := s.db.First(&series, seriesID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrSeriesNotFound
-		}
+	if _, err := s.findOwnedSeries(seriesID, userID); err != nil {
 		return err
-	}
-	if series.UserID != userID {
-		return ErrUnauthorized
 	}
 
 	var post model.Post
-	if err := s.db.Where("id = ? AND deleted_at IS NULL", postID).First(&post).Error; err != nil {
+	if err := s.db.First(&post, postID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrPostNotFound
 		}
@@ -201,7 +195,7 @@ func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID 
 		} else {
 			var maxOrder int
 			if err := s.db.Model(&model.Post{}).
-				Where("series_id = ? AND deleted_at IS NULL", seriesID).
+				Where("series_id = ?", seriesID).
 				Select("COALESCE(MAX(series_order), 0)").Scan(&maxOrder).Error; err != nil {
 				return err
 			}
@@ -218,15 +212,8 @@ func (s *service) AddPostToSeries(seriesID uint, postID uint, order int, userID 
 }
 
 func (s *service) RemovePostFromSeries(seriesID uint, postID uint, userID uint) error {
-	var series model.Series
-	if err := s.db.First(&series, seriesID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrSeriesNotFound
-		}
+	if _, err := s.findOwnedSeries(seriesID, userID); err != nil {
 		return err
-	}
-	if series.UserID != userID {
-		return ErrUnauthorized
 	}
 
 	return s.db.Model(&model.Post{}).Where("id = ? AND series_id = ?", postID, seriesID).
@@ -234,15 +221,8 @@ func (s *service) RemovePostFromSeries(seriesID uint, postID uint, userID uint) 
 }
 
 func (s *service) ReorderPosts(seriesID uint, postIDs []uint, userID uint) error {
-	var series model.Series
-	if err := s.db.First(&series, seriesID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrSeriesNotFound
-		}
+	if _, err := s.findOwnedSeries(seriesID, userID); err != nil {
 		return err
-	}
-	if series.UserID != userID {
-		return ErrUnauthorized
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -260,7 +240,7 @@ func (s *service) ReorderPosts(seriesID uint, postIDs []uint, userID uint) error
 func (s *service) CountPostsInSeries(seriesID uint) (int64, error) {
 	var count int64
 	if err := s.db.Model(&model.Post{}).
-		Where("series_id = ? AND deleted_at IS NULL", seriesID).Count(&count).Error; err != nil {
+		Where("series_id = ?", seriesID).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -298,15 +278,10 @@ func (s *service) GetSeriesNavigation(postID uint, viewerID *uint) (*dto.SeriesN
 		return nil, err
 	}
 
-	currentOrder := 0
-	if post.SeriesOrder != nil {
-		currentOrder = *post.SeriesOrder
-	}
-
 	nav := &dto.SeriesNavResponse{
 		SeriesID:     series.ID,
 		SeriesTitle:  series.Title,
-		CurrentOrder: currentOrder,
+		CurrentOrder: post.OrderInSeries(),
 		TotalPosts:   len(posts),
 	}
 
