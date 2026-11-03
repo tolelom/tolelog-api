@@ -7,6 +7,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	SortPopular = "popular"
+	SortByName  = "name"
+)
+
 type Service interface {
 	GetTags(sort string, limit int) (*dto.TagListResponse, error)
 }
@@ -26,7 +31,7 @@ type tagRow struct {
 
 func (s *service) GetTags(sort string, limit int) (*dto.TagListResponse, error) {
 	orderClause := "post_count DESC"
-	if sort == "name" {
+	if sort == SortByName {
 		orderClause = "tags.name ASC"
 	}
 
