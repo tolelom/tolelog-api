@@ -36,3 +36,15 @@ func AuthDataFrom(r *AuthResponse) AuthDataResponse {
 		AvatarURL:    r.User.AvatarURL,
 	}
 }
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+type ImageUploadResponse struct {
+	URL string `json:"url"`
+}
+
+type AvatarResponse struct {
+	AvatarURL string `json:"avatar_url"`
+}

@@ -34,6 +34,6 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	}
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data:   fiber.Map{"url": url},
+		Data:   dto.ImageUploadResponse{URL: url},
 	})
 }

@@ -127,3 +127,12 @@ func PostToListResponse(p *model.Post) PostListResponse {
 		UpdatedAt: p.UpdatedAt,
 	}
 }
+
+type LikeToggleResponse struct {
+	Liked     bool `json:"liked"`
+	LikeCount uint `json:"like_count"`
+}
+
+type LikeStatusResponse struct {
+	Liked bool `json:"liked"`
+}
