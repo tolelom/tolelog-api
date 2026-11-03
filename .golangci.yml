@@ -8,7 +8,11 @@ linters:
     - ineffassign
     - unused
     - forbidigo
+    - nolintlint
   settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
     forbidigo:
       analyze-types: true
       forbid:
