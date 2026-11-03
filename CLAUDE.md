@@ -19,7 +19,7 @@ go run cmd/server/main.go
 go test -v ./...
 go test -v -cover ./...          # with coverage (used in CI)
 
-# Lint (golangci-lint: errcheck, govet, staticcheck, ineffassign, unused)
+# Lint (golangci-lint: errcheck, govet, staticcheck, ineffassign, unused, forbidigo — gorm DB.Save 금지)
 golangci-lint run
 
 # Dependencies
