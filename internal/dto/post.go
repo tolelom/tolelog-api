@@ -67,7 +67,7 @@ type PostListResponse struct {
 
 type PostListWithPagination struct {
 	Posts      []PostListResponse `json:"posts"`
-	Pagination Pagination        `json:"pagination"`
+	Pagination Pagination         `json:"pagination"`
 }
 
 type Pagination struct {

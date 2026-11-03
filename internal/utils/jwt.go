@@ -23,7 +23,7 @@ var (
 type Claims struct {
 	UserID       uint   `json:"user_id"`
 	Username     string `json:"username"`
-	TokenType    string `json:"token_type"`                   // "access" or "refresh"
+	TokenType    string `json:"token_type"`              // "access" or "refresh"
 	TokenVersion int    `json:"token_version,omitempty"` // refresh token에만 사용
 	jwt.RegisteredClaims
 }
