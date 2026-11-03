@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strconv"
 	"tolelom_api/internal/dto"
-	"tolelom_api/internal/utils"
+	"tolelom_api/internal/observability"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -33,7 +33,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 
 	// 4xx 는 클라이언트 문제라 리포팅하면 잡음이다.
 	if code >= 500 {
-		utils.CaptureException(err, map[string]string{
+		observability.CaptureException(err, map[string]string{
 			"method": c.Method(),
 			"path":   c.Path(),
 			"status": strconv.Itoa(code),
