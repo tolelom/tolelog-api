@@ -4,8 +4,8 @@ import (
 	"encoding/xml"
 	"time"
 	"tolelom_api/internal/markdown"
+	"tolelom_api/internal/permalink"
 	"tolelom_api/internal/post"
-	"tolelom_api/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -63,7 +63,7 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 
 	items := make([]rssItem, 0, len(posts))
 	for _, p := range posts {
-		postLink := utils.SiteURL + utils.PostSlugPath(p.Title, p.ID)
+		postLink := permalink.SiteURL + permalink.PostPath(p.Title, p.ID)
 		items = append(items, rssItem{
 			Title:       p.Title,
 			Link:        postLink,
@@ -83,7 +83,7 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 		Version: "2.0",
 		Channel: rssChannel{
 			Title:         blogTitle,
-			Link:          utils.SiteURL,
+			Link:          permalink.SiteURL,
 			Description:   blogDesc,
 			Language:      "ko",
 			LastBuildDate: lastBuild,
