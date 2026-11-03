@@ -41,7 +41,6 @@ func NewService(db *gorm.DB) Service {
 	return &service{db: db}
 }
 
-// withDetails loads what post responses show besides the post row itself.
 func withDetails(db *gorm.DB) *gorm.DB {
 	return db.Preload("User").Preload("Tags").Preload("Series")
 }
@@ -57,7 +56,7 @@ func splitTags(tagsStr string) []string {
 	return result
 }
 
-// syncTags makes the post's tags exactly the comma-separated names, creating missing tags.
+// syncTags 는 글의 태그를 쉼표로 나뉜 이름 그대로 맞추고, 없는 태그는 만든다.
 func syncTags(tx *gorm.DB, post *model.Post, tagsStr string) error {
 	tagNames := splitTags(tagsStr)
 	tags := make([]model.Tag, 0, len(tagNames))
@@ -74,7 +73,6 @@ func syncTags(tx *gorm.DB, post *model.Post, tagsStr string) error {
 	return tx.Model(post).Association("Tags").Replace(tags)
 }
 
-// findPost returns ErrPostNotFound for a missing or deleted post.
 func (s *service) findPost(db *gorm.DB, postID uint) (*model.Post, error) {
 	var post model.Post
 	if err := db.First(&post, postID).Error; err != nil {
@@ -97,7 +95,6 @@ func (s *service) findOwnPost(postID, userID uint) (*model.Post, error) {
 	return post, nil
 }
 
-// CreatePost defaults an unset status to published and fills post with its stored details.
 func (s *service) CreatePost(post *model.Post) error {
 	if post.Status == "" {
 		post.Status = model.PostStatusPublished
@@ -116,7 +113,6 @@ func (s *service) CreatePost(post *model.Post) error {
 	})
 }
 
-// GetPostByID counts a view for every successful read.
 func (s *service) GetPostByID(postID uint, userID *uint) (*model.Post, error) {
 	post, err := s.findPost(s.db.Scopes(withDetails), postID)
 	if err != nil {
