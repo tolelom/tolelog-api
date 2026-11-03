@@ -6,10 +6,12 @@ import (
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
 	"tolelom_api/internal/upload"
-	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+// 다른 도메인의 "요청 형식이 잘못되었습니다" 와 다르지만, 프론트엔드에 보이는 문구라 그대로 둔다.
+const malformedBodyMessage = "요청 형식이 올바르지 않습니다"
 
 type Handler struct {
 	authService AuthService
@@ -33,15 +35,12 @@ func NewHandler(authService AuthService, uploadDir string) *Handler {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
-	var req dto.RegisterRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.RegisterRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.RegisterUser(&req)
+	authResp, err := h.authService.RegisterUser(req)
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
 			return c.Status(fiber.StatusConflict).JSON(dto.NewErrorResponse("user_already_exists", "이미 존재하는 사용자명입니다"))
@@ -74,15 +73,12 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
-	var req dto.LoginRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.LoginRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.AuthenticateUser(&req)
+	authResp, err := h.authService.AuthenticateUser(req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_credentials", "사용자명 또는 비밀번호가 잘못되었습니다"))
@@ -115,12 +111,9 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/refresh [post]
 func (h *Handler) RefreshToken(c *fiber.Ctx) error {
-	var req dto.RefreshTokenRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.RefreshTokenRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
 	authResp, err := h.authService.RefreshTokens(req.RefreshToken)
@@ -188,9 +181,9 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/avatar [put]
 func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
 	fileHeader, err := c.FormFile("avatar")
@@ -243,20 +236,17 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/password [put]
 func (h *Handler) ChangePassword(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
-	var req dto.ChangePasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.ChangePasswordRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.ChangePassword(userID, &req)
+	authResp, err := h.authService.ChangePassword(userID, req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidPassword) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("invalid_current_password", "현재 비밀번호가 올바르지 않습니다"))
@@ -290,9 +280,9 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /auth/logout [post]
 func (h *Handler) Logout(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 	if err := h.authService.Logout(userID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("logout_failed", "로그아웃에 실패했습니다"))
@@ -314,9 +304,9 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/me [delete]
 func (h *Handler) DeleteMe(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 	if err := h.authService.DeleteUser(userID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("delete_failed", "계정 삭제에 실패했습니다"))
