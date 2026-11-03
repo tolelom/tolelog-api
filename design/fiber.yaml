@@ -14,20 +14,20 @@ modules:
   docs:       { tier: base, path: docs, summary: "swaggo가 코드 주석에서 생성하는 API 문서" }
   upload:     { tier: infra, role: infra, path: internal/upload }
   config:     { tier: infra, path: internal/config, depends_on: [model] }
-  httputil:   { tier: infra, path: internal/httputil, depends_on: [dto, validate] }
+  httputil:   { tier: infra, path: internal/httputil, depends_on: [dto, upload, validate] }
   post:       { tier: domain, path: internal/post, depends_on: [dto, httputil, model] }
   comment:    { tier: domain, path: internal/comment, depends_on: [dto, httputil, model] }
-  series:     { tier: domain, path: internal/series, depends_on: [dto, model, validate] }
-  tag:        { tier: domain, path: internal/tag, depends_on: [dto] }
+  series:     { tier: domain, path: internal/series, depends_on: [dto, httputil, model] }
+  tag:        { tier: domain, path: internal/tag, depends_on: [dto, model] }
   sitemap:    { tier: domain, path: internal/sitemap, depends_on: [model, utils] }
-  user:       { tier: domain, path: internal/user, depends_on: [dto, model, upload, utils, validate] }
-  image:      { tier: domain, path: internal/image, depends_on: [dto, upload] }
+  user:       { tier: domain, path: internal/user, depends_on: [dto, httputil, model, utils] }
+  image:      { tier: domain, path: internal/image, depends_on: [dto, httputil] }
   feed:       { tier: edge, path: internal/feed, depends_on: [post, utils] }
-  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, utils] }
+  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, httputil, utils] }
   router:
     tier: app
     path: internal/router
-    depends_on: [comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, user]
+    depends_on: [comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, upload, user]
 
 enums:
   post_status:
@@ -44,6 +44,7 @@ errors:
   ErrNoFieldsToUpdate:     { gen: false, in: post, message: "no fields to update" }
   ErrInvalidTag:           { gen: false, in: post, message: "invalid tag parameter" }
   ErrInvalidSearchQuery:   { gen: false, in: post, message: "invalid search query" }
+  ErrTagTooLong:           { gen: false, in: post, message: "tag name too long" }
   ErrCommentNotFound:      { gen: false, in: comment, message: "comment not found" }
   ErrParentNotFound:       { gen: false, in: comment, message: "parent comment not found" }
   comment_post_not_found:  { gen: false, in: comment, message: "post not found", go: { name: ErrPostNotFound } }

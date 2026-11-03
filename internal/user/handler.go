@@ -2,14 +2,14 @@ package user
 
 import (
 	"errors"
-	"path/filepath"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
-	"tolelom_api/internal/upload"
-	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+// 다른 도메인의 "요청 형식이 잘못되었습니다" 와 다르지만, 프론트엔드에 보이는 문구라 그대로 둔다.
+const malformedBodyMessage = "요청 형식이 올바르지 않습니다"
 
 type Handler struct {
 	authService AuthService
@@ -20,7 +20,6 @@ func NewHandler(authService AuthService, uploadDir string) *Handler {
 	return &Handler{authService: authService, uploadDir: uploadDir}
 }
 
-// Register godoc
 // @Summary      회원가입
 // @Description  새로운 사용자를 등록합니다
 // @Tags         Auth
@@ -33,15 +32,12 @@ func NewHandler(authService AuthService, uploadDir string) *Handler {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/register [post]
 func (h *Handler) Register(c *fiber.Ctx) error {
-	var req dto.RegisterRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.RegisterRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.RegisterUser(&req)
+	authResp, err := h.authService.RegisterUser(req)
 	if err != nil {
 		if errors.Is(err, ErrUserAlreadyExists) {
 			return c.Status(fiber.StatusConflict).JSON(dto.NewErrorResponse("user_already_exists", "이미 존재하는 사용자명입니다"))
@@ -51,17 +47,10 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
-// Login godoc
 // @Summary      로그인
 // @Description  사용자명과 비밀번호로 로그인합니다
 // @Tags         Auth
@@ -74,15 +63,12 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/login [post]
 func (h *Handler) Login(c *fiber.Ctx) error {
-	var req dto.LoginRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.LoginRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.AuthenticateUser(&req)
+	authResp, err := h.authService.AuthenticateUser(req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidCredentials) {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("invalid_credentials", "사용자명 또는 비밀번호가 잘못되었습니다"))
@@ -92,17 +78,10 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
-// RefreshToken godoc
 // @Summary      토큰 갱신
 // @Description  리프레시 토큰으로 새로운 액세스 토큰과 리프레시 토큰을 발급합니다
 // @Tags         Auth
@@ -115,12 +94,9 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 // @Failure      500   {object}  dto.ErrorResponse
 // @Router       /auth/refresh [post]
 func (h *Handler) RefreshToken(c *fiber.Ctx) error {
-	var req dto.RefreshTokenRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.RefreshTokenRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
 	authResp, err := h.authService.RefreshTokens(req.RefreshToken)
@@ -133,17 +109,10 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
-// GetProfile godoc
 // @Summary      유저 프로필 조회
 // @Description  유저 ID로 프로필 정보를 조회합니다
 // @Tags         Users
@@ -174,7 +143,6 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 	})
 }
 
-// UploadAvatar godoc
 // @Summary      프로필 이미지 업로드
 // @Description  프로필 이미지를 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
 // @Tags         Users
@@ -188,33 +156,16 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/avatar [put]
 func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
-	}
-
-	fileHeader, err := c.FormFile("avatar")
+	userID, err := httputil.RequireAuth(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
+		return nil
 	}
 
-	file, err := fileHeader.Open()
+	avatarURL, err := httputil.SaveImageUpload(c, "avatar", h.uploadDir)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
-	}
-	defer func() { _ = file.Close() }()
-
-	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
+		return nil
 	}
 
-	savePath := filepath.Join(h.uploadDir, filename)
-	if err := c.SaveFile(fileHeader, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
-	}
-
-	avatarURL := "/uploads/images/" + filename
 	if err := h.authService.UpdateAvatar(userID, avatarURL); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "프로필 이미지 업데이트에 실패했습니다"))
 	}
@@ -227,7 +178,6 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 	})
 }
 
-// ChangePassword godoc
 // @Summary      비밀번호 변경
 // @Description  현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다. 다른 기기의 리프레시 토큰은 무효가 되고, 응답의 새 토큰 쌍으로 이 기기 세션을 이어 간다
 // @Tags         Users
@@ -243,20 +193,17 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/password [put]
 func (h *Handler) ChangePassword(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 
-	var req dto.ChangePasswordRequest
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_request", "요청 형식이 올바르지 않습니다"))
-	}
-	if err := validate.Struct(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("validation_failed", err.Error()))
+	req, err := httputil.BindAndValidateWithMessage[dto.ChangePasswordRequest](c, malformedBodyMessage)
+	if err != nil {
+		return nil
 	}
 
-	authResp, err := h.authService.ChangePassword(userID, &req)
+	authResp, err := h.authService.ChangePassword(userID, req)
 	if err != nil {
 		if errors.Is(err, ErrInvalidPassword) {
 			return c.Status(fiber.StatusForbidden).JSON(dto.NewErrorResponse("invalid_current_password", "현재 비밀번호가 올바르지 않습니다"))
@@ -269,17 +216,10 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
-// Logout godoc
 // @Summary      로그아웃
 // @Description  리프레시 토큰을 무효화합니다
 // @Tags         Auth
@@ -290,9 +230,9 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /auth/logout [post]
 func (h *Handler) Logout(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 	if err := h.authService.Logout(userID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("logout_failed", "로그아웃에 실패했습니다"))
@@ -303,7 +243,6 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteMe godoc
 // @Summary      계정 삭제
 // @Description  현재 로그인한 사용자의 계정과 모든 데이터를 삭제합니다
 // @Tags         Users
@@ -314,9 +253,9 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 // @Security     BearerAuth
 // @Router       /users/me [delete]
 func (h *Handler) DeleteMe(c *fiber.Ctx) error {
-	userID, ok := c.Locals("userID").(uint)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(dto.NewErrorResponse("unauthorized", "인증이 필요합니다"))
+	userID, err := httputil.RequireAuth(c)
+	if err != nil {
+		return nil
 	}
 	if err := h.authService.DeleteUser(userID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("delete_failed", "계정 삭제에 실패했습니다"))

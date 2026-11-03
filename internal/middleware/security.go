@@ -2,12 +2,10 @@ package middleware
 
 import "github.com/gofiber/fiber/v2"
 
-// API 응답은 JSON이므로 default-src 'none' + frame-ancestors 'none' 으로
-// 혹시라도 HTML로 해석되거나 iframe에 임베드되는 경우를 차단한다.
+// 응답은 JSON 뿐이라 모든 출처를 막아, HTML 로 해석되거나 iframe 에 실리는 경우를 차단한다.
 const apiCSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 
-// HSTS — 프록시/CDN이 헤더를 제거하지 않는 한 1년 유지, 서브도메인 포함, preload 신청 가능.
-// 백엔드에서도 설정하여 엣지(nginx) 우회 호출 시에도 적용되도록 한다 (defense in depth).
+// 엣지 프록시를 거치지 않은 호출에도 HSTS 가 붙도록 백엔드에서도 건다.
 const hsts = "max-age=31536000; includeSubDomains"
 
 func SecurityHeaders() fiber.Handler {

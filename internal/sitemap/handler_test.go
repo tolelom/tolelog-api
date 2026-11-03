@@ -121,7 +121,7 @@ func TestSitemap_ContentType(t *testing.T) {
 func TestURLSetMarshal(t *testing.T) {
 	set := urlSet{
 		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
-		URLs: []siteURL_{
+		URLs: []urlEntry{
 			{Loc: "https://blog.tolelom.xyz", LastMod: "2026-03-18"},
 			{Loc: "https://blog.tolelom.xyz/post/hello-1", LastMod: "2026-03-17"},
 		},
@@ -151,7 +151,7 @@ func TestURLSetMarshal(t *testing.T) {
 func TestURLSetEmpty(t *testing.T) {
 	set := urlSet{
 		XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9",
-		URLs:  []siteURL_{},
+		URLs:  []urlEntry{},
 	}
 
 	_, err := xml.MarshalIndent(set, "", "  ")

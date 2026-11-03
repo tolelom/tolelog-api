@@ -49,42 +49,41 @@ func CommentToResponse(c *model.Comment) CommentResponse {
 	}
 }
 
-// BuildCommentTree converts a flat list of comments into a tree structure.
-// Root comments (ParentID == nil) are returned at the top level,
-// with their replies nested under them.
+// BuildCommentTree nests each comment under its parent. Replies whose parent is
+// missing from the list (deleted, or past the fetch limit) are shown at the top
+// level after the root comments.
 func BuildCommentTree(comments []model.Comment) []CommentResponse {
-	responseMap := make(map[uint]*CommentResponse, len(comments))
-
-	// First pass: create all response objects
+	listed := make(map[uint]bool, len(comments))
 	for i := range comments {
-		resp := CommentToResponse(&comments[i])
-		responseMap[resp.ID] = &resp
+		listed[comments[i].ID] = true
 	}
 
-	// Second pass: attach children to parents
-	var rootIDs []uint
-	var orphanIDs []uint
+	var roots, orphans []*model.Comment
+	repliesOf := make(map[uint][]*model.Comment)
 	for i := range comments {
-		if comments[i].ParentID != nil {
-			if parent, ok := responseMap[*comments[i].ParentID]; ok {
-				child := responseMap[comments[i].ID]
-				parent.Replies = append(parent.Replies, *child)
-			} else {
-				orphanIDs = append(orphanIDs, comments[i].ID)
-			}
-		} else {
-			rootIDs = append(rootIDs, comments[i].ID)
+		c := &comments[i]
+		switch {
+		case c.ParentID == nil:
+			roots = append(roots, c)
+		case listed[*c.ParentID]:
+			repliesOf[*c.ParentID] = append(repliesOf[*c.ParentID], c)
+		default:
+			orphans = append(orphans, c)
 		}
 	}
 
-	// Third pass: collect roots (now with replies attached) and orphans
-	roots := make([]CommentResponse, 0, len(rootIDs)+len(orphanIDs))
-	for _, id := range rootIDs {
-		roots = append(roots, *responseMap[id])
-	}
-	for _, id := range orphanIDs {
-		roots = append(roots, *responseMap[id])
+	var withReplies func(c *model.Comment) CommentResponse
+	withReplies = func(c *model.Comment) CommentResponse {
+		resp := CommentToResponse(c)
+		for _, reply := range repliesOf[c.ID] {
+			resp.Replies = append(resp.Replies, withReplies(reply))
+		}
+		return resp
 	}
 
-	return roots
+	tree := make([]CommentResponse, 0, len(roots)+len(orphans))
+	for _, c := range append(roots, orphans...) {
+		tree = append(tree, withReplies(c))
+	}
+	return tree
 }

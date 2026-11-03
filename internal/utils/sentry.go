@@ -10,9 +10,7 @@ import (
 
 var sentryInitialized bool
 
-// InitSentry 는 SENTRY_DSN 환경변수가 설정되어 있을 때만 Sentry 클라이언트를 초기화한다.
-// DSN 이 없으면 무동작 — CaptureException 은 slog.Error 폴백으로 동작.
-// 호출 측은 프로그램 종료 직전 utils.FlushSentry() 를 호출해 미전송 이벤트를 비울 수 있다.
+// InitSentry 는 SENTRY_DSN 이 없으면 아무것도 하지 않는다. 그때 CaptureException 은 로그로만 남긴다.
 func InitSentry() {
 	dsn := os.Getenv("SENTRY_DSN")
 	if dsn == "" {
@@ -39,7 +37,6 @@ func InitSentry() {
 	slog.Info("Sentry 초기화 완료", "environment", env)
 }
 
-// CaptureException 은 에러를 Sentry 로 보내거나, DSN 미설정 시 슬로그에 기록한다.
 func CaptureException(err error, tags map[string]string) {
 	if err == nil {
 		return
@@ -59,7 +56,6 @@ func CaptureException(err error, tags map[string]string) {
 	hub.CaptureException(err)
 }
 
-// FlushSentry 는 종료 시 큐 비우기 (graceful shutdown 마지막에 호출).
 func FlushSentry() {
 	if !sentryInitialized {
 		return

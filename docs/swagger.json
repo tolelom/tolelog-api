@@ -259,6 +259,52 @@
                 }
             }
         },
+        "/health": {
+            "get": {
+                "description": "서버의 health 상태를 반환합니다",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Health Check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/router.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health/ready": {
+            "get": {
+                "description": "DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Readiness Check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/router.ReadinessResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/router.ReadinessResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/posts": {
             "get": {
                 "description": "공개된 모든 글을 페이지네이션으로 조회합니다",
@@ -2348,6 +2394,32 @@
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "router.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Server is running"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
+        "router.ReadinessResponse": {
+            "type": "object",
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "example": "ok"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
                 }
             }
         }

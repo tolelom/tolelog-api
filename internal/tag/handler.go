@@ -6,6 +6,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+const (
+	defaultTagLimit = 50
+	maxTagLimit     = 200
+)
+
 type Handler struct {
 	service Service
 }
@@ -14,7 +19,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// GetTags godoc
 // @Summary      태그 목록 조회
 // @Description  공개 글에 사용된 태그 목록을 사용 횟수와 함께 반환합니다
 // @Tags         Tags
@@ -25,14 +29,14 @@ func NewHandler(service Service) *Handler {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /tags [get]
 func (h *Handler) GetTags(c *fiber.Ctx) error {
-	sort := c.Query("sort", "popular")
-	if sort != "popular" && sort != "name" {
-		sort = "popular"
+	sort := c.Query("sort", SortPopular)
+	if sort != SortPopular && sort != SortByName {
+		sort = SortPopular
 	}
 
-	limit := c.QueryInt("limit", 50)
-	if limit < 1 || limit > 200 {
-		limit = 50
+	limit := c.QueryInt("limit", defaultTagLimit)
+	if limit < 1 || limit > maxTagLimit {
+		limit = defaultTagLimit
 	}
 
 	result, err := h.service.GetTags(sort, limit)

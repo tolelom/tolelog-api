@@ -9,6 +9,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+const (
+	defaultCommentLimit = 200
+	maxCommentLimit     = 500
+)
+
 type Handler struct {
 	service Service
 }
@@ -17,7 +22,6 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
-// CreateComment godoc
 // @Summary      댓글 작성
 // @Description  게시글에 댓글을 작성합니다. parent_id를 지정하면 대댓글이 됩니다.
 // @Tags         Comments
@@ -74,7 +78,6 @@ func (h *Handler) CreateComment(c *fiber.Ctx) error {
 	})
 }
 
-// GetComments godoc
 // @Summary      댓글 목록 조회
 // @Description  게시글의 댓글 목록을 트리 구조로 조회합니다
 // @Tags         Comments
@@ -91,9 +94,9 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 		return nil
 	}
 
-	limit := c.QueryInt("limit", 200)
-	if limit < 1 || limit > 500 {
-		limit = 200
+	limit := c.QueryInt("limit", defaultCommentLimit)
+	if limit < 1 || limit > maxCommentLimit {
+		limit = defaultCommentLimit
 	}
 
 	comments, total, err := h.service.GetCommentsByPostID(postID, httputil.OptionalUserID(c), limit)
@@ -118,7 +121,6 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateComment godoc
 // @Summary      댓글 수정
 // @Description  작성자가 댓글을 수정합니다
 // @Tags         Comments
@@ -176,7 +178,6 @@ func (h *Handler) UpdateComment(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteComment godoc
 // @Summary      댓글 삭제
 // @Description  작성자가 댓글을 삭제합니다. 하위 대댓글은 유지됩니다.
 // @Tags         Comments

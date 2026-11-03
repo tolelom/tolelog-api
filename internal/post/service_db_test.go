@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -559,5 +560,31 @@ func TestUpdatePost_ResponseKeepsSeries(t *testing.T) {
 	}
 	if got.Series == nil || got.Series.Title != "C 언어 기초" {
 		t.Fatalf("Series = %+v, want C 언어 기초 (수정 응답에서 시리즈 정보가 빠지면 안 된다)", got.Series)
+	}
+}
+
+// tags.name 칸보다 긴 태그는 MySQL 에서 저장 오류(500)가 됐다. 저장 전에 거절한다.
+func TestCreateAndUpdatePost_RejectTagLongerThanColumn(t *testing.T) {
+	db := testutil.SetupDB(t)
+	svc := NewService(db)
+	u := testutil.MakeUser(t, db, "alice")
+	longTag := strings.Repeat("가", model.TagNameMaxRunes+1)
+
+	err := svc.CreatePost(&model.Post{Title: "t", Content: "c", UserID: u.ID, TagsRaw: "go," + longTag})
+	if !errors.Is(err, ErrTagTooLong) {
+		t.Fatalf("CreatePost err = %v, want ErrTagTooLong", err)
+	}
+	var count int64
+	db.Model(&model.Post{}).Count(&count)
+	if count != 0 {
+		t.Fatalf("거절된 글이 남았다: %d개", count)
+	}
+
+	p := testutil.MakePost(t, db, u.ID)
+	if _, err := svc.UpdatePost(p.ID, u.ID, &dto.UpdatePostRequest{Tags: &longTag}); !errors.Is(err, ErrTagTooLong) {
+		t.Fatalf("UpdatePost err = %v, want ErrTagTooLong", err)
+	}
+	if _, err := svc.UpdatePost(p.ID, u.ID, &dto.UpdatePostRequest{Tags: strPtr(strings.Repeat("가", model.TagNameMaxRunes))}); err != nil {
+		t.Fatalf("50자 태그는 받아야 한다: %v", err)
 	}
 }
