@@ -59,7 +59,9 @@ flowchart LR
 | `internal/dto` | 요청과 응답 타입 |
 | `internal/middleware` | 인증, 오류 처리, 패닉 복구, 보안 헤더, 요청 로그 |
 | `internal/config` | 환경 변수, DB 연결, 자동 마이그레이션 |
-| `internal/utils` | JWT, 비밀번호, 슬러그, Sentry |
+| `internal/auth` | JWT, 비밀번호 해시 |
+| `internal/markdown`, `internal/permalink` | 마크다운 발췌, 사이트 주소·슬러그·글 경로 |
+| `internal/observability` | Sentry 에러 리포팅 |
 | `internal/testutil` | 테스트용 인메모리 SQLite와 픽스처 |
 | `docs` | Swagger 문서(swag 생성) |
 

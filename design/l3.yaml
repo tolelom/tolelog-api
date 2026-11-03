@@ -49,5 +49,5 @@ funcs:
   require_auth: { in: httputil, gen: false, summary: "RequireAuth extracts the authenticated userID from Fiber locals.", errors: [ErrResponseSent] }
   sanitize_search_query: { in: post, gen: false, summary: "SanitizeSearchQuery validates and sanitizes a search query parameter.", errors: [ErrInvalidSearchQuery] }
   sanitize_tag: { in: post, gen: false, summary: "SanitizeTag validates and sanitizes a tag parameter.", errors: [ErrInvalidTag] }
-  validate_access_token: { in: utils, gen: false, summary: "ValidateAccessToken validates a JWT token and only accepts access tokens", errors: [ErrInvalidTokenType] }
-  validate_refresh_token: { in: utils, gen: false, summary: "ValidateRefreshToken validates a JWT token and only accepts refresh tokens", errors: [ErrInvalidTokenType] }
+  validate_access_token: { in: auth, gen: false, summary: "ValidateAccessToken validates a JWT token and only accepts access tokens", errors: [ErrInvalidTokenType] }
+  validate_refresh_token: { in: auth, gen: false, summary: "ValidateRefreshToken validates a JWT token and only accepts refresh tokens", errors: [ErrInvalidTokenType] }

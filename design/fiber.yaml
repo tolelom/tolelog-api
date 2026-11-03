@@ -2,15 +2,18 @@ version: 0.5
 go_module: tolelom_api
 
 executables:
-  server: { composes: [router, config, middleware, utils] }
+  server: { composes: [router, config, middleware, observability] }
 
 tiers: [base, infra, domain, edge, app]
 
 modules:
   model:      { tier: base, role: data, path: internal/model }
-  utils:      { tier: base, path: internal/utils, depends_on: [model] }
+  auth:       { tier: base, path: internal/auth, depends_on: [model] }
+  markdown:   { tier: base, path: internal/markdown }
+  permalink:  { tier: base, path: internal/permalink }
+  observability: { tier: base, path: internal/observability }
   validate:   { tier: base, path: internal/validate }
-  dto:        { tier: base, role: data, path: internal/dto, depends_on: [model, utils] }
+  dto:        { tier: base, role: data, path: internal/dto, depends_on: [markdown, model] }
   docs:       { tier: base, path: docs, summary: "swaggo가 코드 주석에서 생성하는 API 문서" }
   upload:     { tier: infra, role: infra, path: internal/upload }
   config:     { tier: infra, path: internal/config, depends_on: [model] }
@@ -19,11 +22,11 @@ modules:
   comment:    { tier: domain, path: internal/comment, depends_on: [dto, httputil, model] }
   series:     { tier: domain, path: internal/series, depends_on: [dto, httputil, model] }
   tag:        { tier: domain, path: internal/tag, depends_on: [dto, model] }
-  sitemap:    { tier: domain, path: internal/sitemap, depends_on: [model, utils] }
-  user:       { tier: domain, path: internal/user, depends_on: [dto, httputil, model, utils] }
+  sitemap:    { tier: domain, path: internal/sitemap, depends_on: [model, permalink] }
+  user:       { tier: domain, path: internal/user, depends_on: [auth, dto, httputil, model] }
   image:      { tier: domain, path: internal/image, depends_on: [dto, httputil] }
-  feed:       { tier: edge, path: internal/feed, depends_on: [post, utils] }
-  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, httputil, utils] }
+  feed:       { tier: edge, path: internal/feed, depends_on: [markdown, permalink, post] }
+  middleware: { tier: edge, path: internal/middleware, depends_on: [auth, config, dto, httputil, observability] }
   router:
     tier: app
     path: internal/router
@@ -60,12 +63,12 @@ errors:
   ErrSamePassword:         { gen: false, in: user, message: "new password is the same as current" }
   ErrInvalidRefreshToken:  { gen: false, in: user, message: "invalid refresh token" }
   ErrResponseSent:         { gen: false, in: httputil, message: "response already sent" }
-  ErrInvalidToken:         { gen: false, in: utils, message: "invalid token" }
-  ErrExpiredToken:         { gen: false, in: utils, message: "token has expired" }
-  ErrTokenNotYetValid:     { gen: false, in: utils, message: "token not yet valid" }
-  ErrInvalidSigningMethod: { gen: false, in: utils, message: "unexpected signing method" }
-  ErrMissingClaims:        { gen: false, in: utils, message: "missing required claims" }
-  ErrInvalidTokenType:     { gen: false, in: utils, message: "invalid token type" }
+  ErrInvalidToken:         { gen: false, in: auth, message: "invalid token" }
+  ErrExpiredToken:         { gen: false, in: auth, message: "token has expired" }
+  ErrTokenNotYetValid:     { gen: false, in: auth, message: "token not yet valid" }
+  ErrInvalidSigningMethod: { gen: false, in: auth, message: "unexpected signing method" }
+  ErrMissingClaims:        { gen: false, in: auth, message: "missing required claims" }
+  ErrInvalidTokenType:     { gen: false, in: auth, message: "invalid token type" }
 
 # model의 GORM 엔티티. 필드 전부를 적고 daemok check가 코드 struct와 대조한다(태그는 보지 않는다).
 # 연관 엔티티 User는 값 필드라 ref(포인터)가 아니라 type으로 적는다.
