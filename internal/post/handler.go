@@ -153,7 +153,7 @@ func (h *Handler) GetUserPosts(c *fiber.Ctx) error {
 // @Description  제목 또는 본문에서 키워드로 공개 글을 검색합니다
 // @Tags         Posts
 // @Produce      json
-// @Param        q          query  string  true   "검색어 (2~100자)"
+// @Param        q          query  string  true   "검색어 (앞뒤 공백을 뺀 2~100자)"  minlength(2)  maxlength(100)
 // @Param        page       query  int     false  "페이지 번호 (기본값: 1)"
 // @Param        page_size  query  int     false  "페이지 크기 (기본값: 10)"
 // @Success      200  {object}  dto.SuccessResponse{data=dto.PostListWithPagination}
