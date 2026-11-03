@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"tolelom_api/internal/auth"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/model"
-	"tolelom_api/internal/utils"
 
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -52,7 +52,7 @@ func (s *authService) RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse,
 		return nil, ErrUserAlreadyExists
 	}
 
-	hash, err := utils.HashPassword(req.Password)
+	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func normalizeUsername(username string) string {
 }
 
 func (s *authService) issueTokens(u *model.User) (*dto.AuthResponse, error) {
-	accessToken, refreshToken, err := utils.GenerateTokenPair(u, s.jwtSecret)
+	accessToken, refreshToken, err := auth.GenerateTokenPair(u, s.jwtSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *authService) AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse
 		}
 		return nil, err
 	}
-	if !utils.CheckPasswordHash(req.Password, u.PasswordHash) {
+	if !auth.CheckPasswordHash(req.Password, u.PasswordHash) {
 		return nil, ErrInvalidCredentials
 	}
 
@@ -130,7 +130,7 @@ func (s *authService) UpdateAvatar(userID uint, avatarURL string) error {
 }
 
 func (s *authService) RefreshTokens(refreshToken string) (*dto.AuthResponse, error) {
-	claims, err := utils.ValidateRefreshToken(refreshToken, s.jwtSecret)
+	claims, err := auth.ValidateRefreshToken(refreshToken, s.jwtSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +177,15 @@ func (s *authService) ChangePassword(userID uint, req *dto.ChangePasswordRequest
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(req.CurrentPassword, u.PasswordHash) {
+	if !auth.CheckPasswordHash(req.CurrentPassword, u.PasswordHash) {
 		return nil, ErrInvalidPassword
 	}
 
-	if utils.CheckPasswordHash(req.NewPassword, u.PasswordHash) {
+	if auth.CheckPasswordHash(req.NewPassword, u.PasswordHash) {
 		return nil, ErrSamePassword
 	}
 
-	hash, err := utils.HashPassword(req.NewPassword)
+	hash, err := auth.HashPassword(req.NewPassword)
 	if err != nil {
 		return nil, err
 	}
