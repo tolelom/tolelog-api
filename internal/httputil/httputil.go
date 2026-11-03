@@ -2,8 +2,10 @@ package httputil
 
 import (
 	"errors"
+	"path/filepath"
 	"strconv"
 	"tolelom_api/internal/dto"
+	"tolelom_api/internal/upload"
 	"tolelom_api/internal/validate"
 
 	"github.com/gofiber/fiber/v2"
@@ -90,4 +92,33 @@ func NewPagination(page, pageSize int, total int64) dto.Pagination {
 		Total:      total,
 		TotalPages: (total + int64(pageSize) - 1) / int64(pageSize),
 	}
+}
+
+// SaveImageUpload stores the image in multipart field under dir and returns its public URL.
+// On failure it sends a JSON error response and returns ErrResponseSent.
+func SaveImageUpload(c *fiber.Ctx, field, dir string) (string, error) {
+	fileHeader, err := c.FormFile(field)
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
+		return "", ErrResponseSent
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
+		return "", ErrResponseSent
+	}
+	defer func() { _ = file.Close() }()
+
+	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
+	if err != nil {
+		_ = c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
+		return "", ErrResponseSent
+	}
+
+	if err := c.SaveFile(fileHeader, filepath.Join(dir, filename)); err != nil {
+		_ = c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
+		return "", ErrResponseSent
+	}
+	return upload.PublicURL(filename), nil
 }
