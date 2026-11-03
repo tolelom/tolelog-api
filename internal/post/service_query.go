@@ -16,11 +16,9 @@ const (
 
 var validTagPattern = regexp.MustCompile(`^[\p{L}\p{N}\-_\.\+\# ]+$`)
 
-// validSearchPattern allows Unicode letters, numbers, spaces, and common punctuation.
-// Disallows SQL LIKE wildcards (%, _) and special characters that could cause issues.
+// 글자·숫자·공백과 흔한 문장부호만 받는다. LIKE 의 % 는 받지 않는다(_ 는 escapeLike 가 막는다).
 var validSearchPattern = regexp.MustCompile(`^[\p{L}\p{N}\s\-_\.\,\!\?\:\;\'\"\(\)]+$`)
 
-// SanitizeSearchQuery validates and sanitizes a search query parameter.
 func SanitizeSearchQuery(query string) (string, error) {
 	query = strings.TrimSpace(query)
 	if n := utf8.RuneCountInString(query); n < searchQueryMinRunes || n > searchQueryMaxRunes {
@@ -32,7 +30,7 @@ func SanitizeSearchQuery(query string) (string, error) {
 	return query, nil
 }
 
-// SanitizeTag validates and sanitizes a tag parameter.
+// SanitizeTag 는 빈 태그를 필터 없음으로 보고 오류 없이 "" 를 돌려준다.
 func SanitizeTag(tag string) (string, error) {
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
@@ -67,7 +65,6 @@ func (s *service) GetUserPosts(userID uint, currentUserID *uint, page, pageSize 
 	return newestFirstPage(query, page, pageSize)
 }
 
-// taggedWith narrows query to posts carrying tag. An empty tag leaves it unchanged.
 func (s *service) taggedWith(query *gorm.DB, tag string) (*gorm.DB, error) {
 	sanitized, err := SanitizeTag(tag)
 	if err != nil || sanitized == "" {
@@ -80,7 +77,6 @@ func (s *service) taggedWith(query *gorm.DB, tag string) (*gorm.DB, error) {
 			Where("tags.name = ?", sanitized)), nil
 }
 
-// newestFirstPage returns one page of query's posts with their details, and the total match count.
 func newestFirstPage(query *gorm.DB, page, pageSize int) ([]model.Post, int64, error) {
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -98,7 +94,7 @@ func newestFirstPage(query *gorm.DB, page, pageSize int) ([]model.Post, int64, e
 	return posts, total, nil
 }
 
-// escapeLike escapes SQL LIKE metacharacters (%, _) in a string.
+// escapeLike 는 MySQL LIKE 의 기본 이스케이프 문자인 \ 를 쓴다.
 func escapeLike(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "%", "\\%")
@@ -113,7 +109,6 @@ func (s *service) SearchPosts(query string, page, pageSize int) ([]model.Post, i
 	return newestFirstPage(matches, page, pageSize)
 }
 
-// GetDrafts returns all draft posts for a user.
 func (s *service) GetDrafts(userID uint) ([]model.Post, error) {
 	var posts []model.Post
 	if err := s.db.Where("user_id = ? AND status = ?", userID, model.PostStatusDraft).
