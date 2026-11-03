@@ -11,13 +11,10 @@ import (
 
 const (
 	rssItemLimit  = 20
-	siteURL       = "https://blog.tolelom.xyz"
 	blogTitle     = "Tolelog"
 	blogDesc      = "Tolelog 블로그"
 	excerptLength = 200
 )
-
-// RSS 2.0 structs
 
 type rssRoot struct {
 	XMLName xml.Name   `xml:"rss"`
@@ -51,14 +48,6 @@ func NewHandler(postService post.Service) *Handler {
 	return &Handler{postService: postService}
 }
 
-func excerpt(content string, maxLen int) string {
-	plain := utils.StripMarkdown(content)
-	if len([]rune(plain)) <= maxLen {
-		return plain
-	}
-	return string([]rune(plain)[:maxLen]) + "..."
-}
-
 // Feed godoc
 // @Summary      RSS 피드
 // @Description  공개 글의 RSS 2.0 피드를 반환합니다 (최근 20개)
@@ -74,17 +63,12 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 
 	items := make([]rssItem, 0, len(posts))
 	for _, p := range posts {
-		author := ""
-		if p.User.ID != 0 {
-			author = p.User.Username
-		}
-		// 캐노니컬 URL: /post/{slug}-{id}
-		postLink := siteURL + utils.PostSlugPath(p.Title, p.ID)
+		postLink := utils.SiteURL + utils.PostSlugPath(p.Title, p.ID)
 		items = append(items, rssItem{
 			Title:       p.Title,
 			Link:        postLink,
-			Description: excerpt(p.Content, excerptLength),
-			Author:      author,
+			Description: utils.Excerpt(p.Content, excerptLength),
+			Author:      p.User.Username,
 			PubDate:     p.CreatedAt.Format(time.RFC1123Z),
 			GUID:        postLink,
 		})
@@ -99,7 +83,7 @@ func (h *Handler) Feed(c *fiber.Ctx) error {
 		Version: "2.0",
 		Channel: rssChannel{
 			Title:         blogTitle,
-			Link:          siteURL,
+			Link:          utils.SiteURL,
 			Description:   blogDesc,
 			Language:      "ko",
 			LastBuildDate: lastBuild,
