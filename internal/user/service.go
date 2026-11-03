@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	ErrUserAlreadyExists    = errors.New("user already exists")
-	ErrInvalidCredentials   = errors.New("invalid credentials")
-	ErrUserNotFound         = errors.New("user not found")
-	ErrInvalidPassword      = errors.New("invalid current password")
-	ErrSamePassword         = errors.New("new password is the same as current")
-	ErrInvalidRefreshToken  = errors.New("invalid refresh token")
+	ErrUserAlreadyExists   = errors.New("user already exists")
+	ErrInvalidCredentials  = errors.New("invalid credentials")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrInvalidPassword     = errors.New("invalid current password")
+	ErrSamePassword        = errors.New("new password is the same as current")
+	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 )
 
 type AuthService interface {

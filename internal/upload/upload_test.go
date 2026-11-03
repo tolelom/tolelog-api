@@ -14,8 +14,8 @@ type mockFile struct {
 	*bytes.Reader
 }
 
-func (m *mockFile) Close() error                                         { return nil }
-func (m *mockFile) ReadAt(p []byte, off int64) (int, error)             { return m.Reader.ReadAt(p, off) }
+func (m *mockFile) Close() error                            { return nil }
+func (m *mockFile) ReadAt(p []byte, off int64) (int, error) { return m.Reader.ReadAt(p, off) }
 
 func newMockFile(data []byte) *mockFile {
 	return &mockFile{bytes.NewReader(data)}
