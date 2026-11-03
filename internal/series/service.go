@@ -123,18 +123,25 @@ func (s *service) UpdateSeries(seriesID uint, userID uint, req *dto.UpdateSeries
 		return nil, ErrUnauthorized
 	}
 
+	updates := map[string]any{}
 	if req.Title != nil {
-		series.Title = *req.Title
+		updates["title"] = *req.Title
 	}
 	if req.Description != nil {
-		series.Description = *req.Description
+		updates["description"] = *req.Description
 	}
-
-	if err := s.db.Save(&series).Error; err != nil {
-		return nil, err
+	// Save 는 고칠 행이 없으면(그 사이 삭제됨) INSERT … ON CONFLICT 로 행 전체를 다시 써서
+	// 지운 시리즈를 되살린다. 바꿀 칸만 쓴다.
+	if len(updates) > 0 {
+		if err := s.db.Model(&series).Updates(updates).Error; err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.db.Preload("User").First(&series, series.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSeriesNotFound
+		}
 		return nil, err
 	}
 	return &series, nil

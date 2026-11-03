@@ -114,14 +114,16 @@ func (s *service) UpdateComment(postID uint, commentID uint, userID uint, conten
 		return nil, err
 	}
 
-	comment.Content = content
-	comment.IsEdited = true
-	if err := s.db.Save(comment).Error; err != nil {
+	// Save 는 고칠 행이 없으면(그 사이 삭제됨) INSERT … ON CONFLICT 로 행 전체를 다시 써서
+	// 지운 댓글을 되살린다. 바꿀 칸만 쓴다.
+	if err := s.db.Model(comment).Updates(map[string]any{"content": content, "is_edited": true}).Error; err != nil {
 		return nil, err
 	}
 
-	// Preload User for the response
 	if err := s.db.Preload("User").First(comment, comment.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCommentNotFound
+		}
 		return nil, err
 	}
 
