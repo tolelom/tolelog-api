@@ -105,8 +105,10 @@ func (s *authService) AuthenticateUser(req *dto.LoginRequest) (*dto.AuthResponse
 		return nil, ErrInvalidCredentials
 	}
 
+	// last_login 칸만 쓴다. Save 는 읽어 둔 행 전체를 다시 써서, 그 사이 커밋된 로그아웃·비밀번호 변경의
+	// token_version·password 를 되돌린다.
 	u.LastLogin = time.Now()
-	if err := s.db.Save(&u).Error; err != nil {
+	if err := s.db.Model(&u).UpdateColumn("last_login", u.LastLogin).Error; err != nil {
 		return nil, err
 	}
 
