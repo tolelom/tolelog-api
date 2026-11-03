@@ -16,7 +16,7 @@ const (
 
 var validTagPattern = regexp.MustCompile(`^[\p{L}\p{N}\-_\.\+\# ]+$`)
 
-// 글자·숫자·공백과 흔한 문장부호만 받는다. LIKE 의 % 는 받지 않는다(_ 는 escapeLike 가 막는다).
+// 글자·숫자·공백과 흔한 문장부호만 받는다. LIKE 의 % 는 받지 않고, _ 는 escapeLike 가 이스케이프한다.
 var validSearchPattern = regexp.MustCompile(`^[\p{L}\p{N}\s\-_\.\,\!\?\:\;\'\"\(\)]+$`)
 
 func SanitizeSearchQuery(query string) (string, error) {

@@ -46,7 +46,7 @@ air
 - `internal/image/` — Image upload handler. Accepts multipart/form-data, validates file type, stores to upload dir.
 - `internal/dto/` — Request/response DTOs with validation rules and model-to-DTO conversion functions.
 - `internal/model/` — GORM entities: `User`, `Post`, `Comment`, `Tag`. Post↔Tag is M:N via `post_tags` junction table. Post and Comment use soft deletes.
-- `internal/validate/` — Shared `go-playground/validator` instance with custom `alphanum_underscore` rule.
+- `internal/validate/` — Shared `go-playground/validator` instance with custom `alphanum_underscore` and `max_bytes` (byte-length limit, e.g. bcrypt's 72 bytes) rules.
 - `internal/middleware/` — `auth.go` (required + optional auth), `security.go` (X-Content-Type-Options, X-Frame-Options, CSP, etc.), `logger.go` (request logging), `error.go` (global error handler).
 - `internal/upload/` — File type detection and MIME validation utilities. UUID-based filename generation (5MB max).
 - `internal/utils/` — JWT token pair generation/validation (HMAC-SHA256, 15min access + 7-day refresh, 5s clock skew) and bcrypt password helpers.
