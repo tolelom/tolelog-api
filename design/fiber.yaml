@@ -44,6 +44,7 @@ errors:
   ErrNoFieldsToUpdate:     { gen: false, in: post, message: "no fields to update" }
   ErrInvalidTag:           { gen: false, in: post, message: "invalid tag parameter" }
   ErrInvalidSearchQuery:   { gen: false, in: post, message: "invalid search query" }
+  ErrTagTooLong:           { gen: false, in: post, message: "tag name too long" }
   ErrCommentNotFound:      { gen: false, in: comment, message: "comment not found" }
   ErrParentNotFound:       { gen: false, in: comment, message: "parent comment not found" }
   comment_post_not_found:  { gen: false, in: comment, message: "post not found", go: { name: ErrPostNotFound } }
