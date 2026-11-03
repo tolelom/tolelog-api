@@ -9,6 +9,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+const (
+	defaultCommentLimit = 200
+	maxCommentLimit     = 500
+)
+
 type Handler struct {
 	service Service
 }
@@ -91,9 +96,9 @@ func (h *Handler) GetComments(c *fiber.Ctx) error {
 		return nil
 	}
 
-	limit := c.QueryInt("limit", 200)
-	if limit < 1 || limit > 500 {
-		limit = 200
+	limit := c.QueryInt("limit", defaultCommentLimit)
+	if limit < 1 || limit > maxCommentLimit {
+		limit = defaultCommentLimit
 	}
 
 	comments, total, err := h.service.GetCommentsByPostID(postID, httputil.OptionalUserID(c), limit)

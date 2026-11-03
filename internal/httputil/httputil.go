@@ -14,7 +14,11 @@ import (
 // ErrResponseSent is returned when the HTTP response has already been sent.
 var ErrResponseSent = errors.New("response already sent")
 
-const userIDKey = "userID"
+const (
+	userIDKey       = "userID"
+	defaultPageSize = 10
+	maxPageSize     = 100
+)
 
 // SetUserID records the authenticated user for RequireAuth and OptionalUserID.
 func SetUserID(c *fiber.Ctx, userID uint) {
@@ -24,14 +28,14 @@ func SetUserID(c *fiber.Ctx, userID uint) {
 // ParsePagination extracts page and pageSize from query parameters with defaults and bounds.
 func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 	page = c.QueryInt("page", 1)
-	pageSize = c.QueryInt("page_size", 10)
+	pageSize = c.QueryInt("page_size", defaultPageSize)
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 10
+	if pageSize < 1 || pageSize > maxPageSize {
+		pageSize = defaultPageSize
 	}
-	return
+	return page, pageSize
 }
 
 // BindAndValidate parses the request body into T and validates it.
