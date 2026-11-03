@@ -1,4 +1,4 @@
-package utils
+package permalink
 
 import (
 	"strconv"
@@ -39,8 +39,8 @@ func Slugify(title string) string {
 	return s
 }
 
-// PostSlugPath is the canonical post path /post/{slug}-{id}, or /post/{id} when the title yields no slug.
-func PostSlugPath(title string, id uint) string {
+// PostPath is the canonical post path /post/{slug}-{id}, or /post/{id} when the title yields no slug.
+func PostPath(title string, id uint) string {
 	idStr := strconv.FormatUint(uint64(id), 10)
 	if slug := Slugify(title); slug != "" {
 		return "/post/" + slug + "-" + idStr
