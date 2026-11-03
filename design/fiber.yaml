@@ -23,7 +23,7 @@ modules:
   user:       { tier: domain, path: internal/user, depends_on: [dto, model, upload, utils, validate] }
   image:      { tier: domain, path: internal/image, depends_on: [dto, upload] }
   feed:       { tier: edge, path: internal/feed, depends_on: [post, utils] }
-  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, utils] }
+  middleware: { tier: edge, path: internal/middleware, depends_on: [config, dto, httputil, utils] }
   router:
     tier: app
     path: internal/router
