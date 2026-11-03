@@ -10,9 +10,10 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,min=6,max=128"`
 }
 
+// 비밀번호의 max_bytes=72 는 bcrypt 한도다. 넘으면 해시가 실패한다.
 type RegisterRequest struct {
 	Username string `json:"username" validate:"required,min=4,max=20,alphanum_underscore"`
-	Password string `json:"password" validate:"required,min=6,max=128"`
+	Password string `json:"password" validate:"required,min=6,max=128,max_bytes=72"`
 }
 
 type AuthResponse struct {
@@ -35,7 +36,7 @@ type UserResponse struct {
 
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,min=6,max=128"`
+	NewPassword     string `json:"new_password" validate:"required,min=6,max=128,max_bytes=72"`
 }
 
 func UserToResponse(u *model.User) UserResponse {
