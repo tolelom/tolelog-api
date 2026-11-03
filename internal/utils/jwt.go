@@ -9,7 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// JWT errors
 var (
 	ErrInvalidToken         = errors.New("invalid token")
 	ErrExpiredToken         = errors.New("token has expired")
@@ -19,69 +18,74 @@ var (
 	ErrInvalidTokenType     = errors.New("invalid token type")
 )
 
-// Claims represents JWT custom claims
+const (
+	accessTokenType  = "access"
+	refreshTokenType = "refresh"
+	tokenIssuer      = "tolelom_api"
+
+	accessTokenTTL  = 15 * time.Minute
+	refreshTokenTTL = 7 * 24 * time.Hour
+	clockSkewLeeway = 5 * time.Second
+)
+
 type Claims struct {
-	UserID       uint   `json:"user_id"`
-	Username     string `json:"username"`
-	TokenType    string `json:"token_type"`              // "access" or "refresh"
-	TokenVersion int    `json:"token_version,omitempty"` // refresh token에만 사용
+	UserID    uint   `json:"user_id"`
+	Username  string `json:"username"`
+	TokenType string `json:"token_type"`
+	// TokenVersion 은 리프레시 토큰에만 싣는다. 사용자의 token_version 이 오르면 그 전 토큰은 무효다.
+	TokenVersion int `json:"token_version,omitempty"`
 	jwt.RegisteredClaims
 }
 
-// GenerateTokenPair creates a new access token (15min) and refresh token (7 days) for the given user
 func GenerateTokenPair(user *model.User, secretKey string) (accessToken string, refreshToken string, err error) {
 	now := time.Now()
-
-	// Access token: 15 minutes
-	accessClaims := Claims{
-		UserID:    user.ID,
-		Username:  user.Username,
-		TokenType: "access",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "tolelom_api",
-		},
-	}
-	accessToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(secretKey))
+	accessToken, err = signToken(Claims{
+		UserID:           user.ID,
+		Username:         user.Username,
+		TokenType:        accessTokenType,
+		RegisteredClaims: registeredClaims(now, accessTokenTTL),
+	}, secretKey)
 	if err != nil {
 		return "", "", err
 	}
-
-	// Refresh token: 7 days
-	refreshClaims := Claims{
-		UserID:       user.ID,
-		Username:     user.Username,
-		TokenType:    "refresh",
-		TokenVersion: user.TokenVersion,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(now.Add(7 * 24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "tolelom_api",
-		},
-	}
-	refreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(secretKey))
+	refreshToken, err = signToken(Claims{
+		UserID:           user.ID,
+		Username:         user.Username,
+		TokenType:        refreshTokenType,
+		TokenVersion:     user.TokenVersion,
+		RegisteredClaims: registeredClaims(now, refreshTokenTTL),
+	}, secretKey)
 	if err != nil {
 		return "", "", err
 	}
-
 	return accessToken, refreshToken, nil
 }
 
-// validateToken parses and validates a JWT token, returning the claims
+func registeredClaims(issuedAt time.Time, ttl time.Duration) jwt.RegisteredClaims {
+	return jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(issuedAt.Add(ttl)),
+		IssuedAt:  jwt.NewNumericDate(issuedAt),
+		NotBefore: jwt.NewNumericDate(issuedAt),
+		Issuer:    tokenIssuer,
+	}
+}
+
+func signToken(claims Claims, secretKey string) (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secretKey))
+}
+
 func validateToken(tokenString string, secretKey string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
 		&Claims{},
 		func(token *jwt.Token) (interface{}, error) {
+			// 토큰의 alg 헤더가 검증 방식을 고르게 두지 않는다. none 등 HMAC 이 아닌 alg 는 거절한다.
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("%w: %v", ErrInvalidSigningMethod, token.Header["alg"])
 			}
 			return []byte(secretKey), nil
 		},
-		jwt.WithLeeway(5*time.Second), // Allow 5 second clock skew
+		jwt.WithLeeway(clockSkewLeeway),
 	)
 
 	if err != nil {
@@ -118,26 +122,22 @@ func validateToken(tokenString string, secretKey string) (*Claims, error) {
 	return claims, nil
 }
 
-// ValidateAccessToken validates a JWT token and only accepts access tokens
 func ValidateAccessToken(tokenString string, secretKey string) (*Claims, error) {
-	claims, err := validateToken(tokenString, secretKey)
-	if err != nil {
-		return nil, err
-	}
-	if claims.TokenType != "access" {
-		return nil, fmt.Errorf("%w: expected access token", ErrInvalidTokenType)
-	}
-	return claims, nil
+	return validateTokenOfType(tokenString, secretKey, accessTokenType)
 }
 
-// ValidateRefreshToken validates a JWT token and only accepts refresh tokens
 func ValidateRefreshToken(tokenString string, secretKey string) (*Claims, error) {
+	return validateTokenOfType(tokenString, secretKey, refreshTokenType)
+}
+
+// validateTokenOfType keeps a refresh token from being used as an access token and vice versa.
+func validateTokenOfType(tokenString, secretKey, tokenType string) (*Claims, error) {
 	claims, err := validateToken(tokenString, secretKey)
 	if err != nil {
 		return nil, err
 	}
-	if claims.TokenType != "refresh" {
-		return nil, fmt.Errorf("%w: expected refresh token", ErrInvalidTokenType)
+	if claims.TokenType != tokenType {
+		return nil, fmt.Errorf("%w: expected %s token", ErrInvalidTokenType, tokenType)
 	}
 	return claims, nil
 }

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -45,31 +46,11 @@ func Slugify(title string) string {
 	return s
 }
 
-// PostSlugPath 는 게시글의 canonical URL 경로(`/post/{slug}-{id}`)를 반환한다.
-// 슬러그가 비어있으면 `/post/{id}` 형태로 폴백.
+// PostSlugPath is the canonical post path /post/{slug}-{id}, or /post/{id} when the title yields no slug.
 func PostSlugPath(title string, id uint) string {
-	slug := Slugify(title)
-	if slug == "" {
-		return formatPostPath(id)
+	idStr := strconv.FormatUint(uint64(id), 10)
+	if slug := Slugify(title); slug != "" {
+		return "/post/" + slug + "-" + idStr
 	}
-	return "/post/" + slug + "-" + uintToString(id)
-}
-
-func formatPostPath(id uint) string {
-	return "/post/" + uintToString(id)
-}
-
-func uintToString(n uint) string {
-	// strconv.Itoa 사용 회피 — 작은 의존성 그래프 유지
-	if n == 0 {
-		return "0"
-	}
-	var digits [20]byte
-	idx := len(digits)
-	for n > 0 {
-		idx--
-		digits[idx] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(digits[idx:])
+	return "/post/" + idStr
 }
