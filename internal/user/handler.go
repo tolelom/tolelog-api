@@ -2,10 +2,8 @@ package user
 
 import (
 	"errors"
-	"path/filepath"
 	"tolelom_api/internal/dto"
 	"tolelom_api/internal/httputil"
-	"tolelom_api/internal/upload"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -50,13 +48,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
@@ -88,13 +80,7 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
@@ -126,13 +112,7 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 
@@ -186,28 +166,11 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 		return nil
 	}
 
-	fileHeader, err := c.FormFile("avatar")
+	avatarURL, err := httputil.SaveImageUpload(c, "avatar", h.uploadDir)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
+		return nil
 	}
 
-	file, err := fileHeader.Open()
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
-	}
-	defer func() { _ = file.Close() }()
-
-	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
-	}
-
-	savePath := filepath.Join(h.uploadDir, filename)
-	if err := c.SaveFile(fileHeader, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
-	}
-
-	avatarURL := "/uploads/images/" + filename
 	if err := h.authService.UpdateAvatar(userID, avatarURL); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("update_failed", "프로필 이미지 업데이트에 실패했습니다"))
 	}
@@ -259,13 +222,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: dto.AuthDataResponse{
-			AccessToken:  authResp.AccessToken,
-			RefreshToken: authResp.RefreshToken,
-			Username:     authResp.User.Username,
-			UserID:       authResp.User.ID,
-			AvatarURL:    authResp.User.AvatarURL,
-		},
+		Data:   dto.AuthDataFrom(authResp),
 	})
 }
 

@@ -9,6 +9,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// publicURLPrefix 는 라우터가 업로드 디렉터리를 내보내는 경로다.
+const publicURLPrefix = "/uploads/images/"
+
+// PublicURL is where a stored upload is served.
+func PublicURL(filename string) string {
+	return publicURLPrefix + filename
+}
+
 // MaxFileSize is the maximum allowed file size (5MB).
 const MaxFileSize = 5 * 1024 * 1024
 

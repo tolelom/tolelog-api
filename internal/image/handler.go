@@ -1,12 +1,10 @@
 package image
 
 import (
-	"path/filepath"
-
 	"github.com/gofiber/fiber/v2"
 
 	"tolelom_api/internal/dto"
-	"tolelom_api/internal/upload"
+	"tolelom_api/internal/httputil"
 )
 
 type Handler struct {
@@ -31,31 +29,12 @@ func NewHandler(uploadDir string) *Handler {
 // @Security     BearerAuth
 // @Router       /upload [post]
 func (h *Handler) Upload(c *fiber.Ctx) error {
-	fileHeader, err := c.FormFile("image")
+	url, err := httputil.SaveImageUpload(c, "image", h.uploadDir)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("no_file", "이미지 파일이 필요합니다"))
+		return nil
 	}
-
-	file, err := fileHeader.Open()
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("file_open_failed", "파일을 열 수 없습니다"))
-	}
-	defer func() { _ = file.Close() }()
-
-	filename, err := upload.ValidateAndGenerateFilename(fileHeader, file)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(dto.NewErrorResponse("invalid_file", err.Error()))
-	}
-
-	savePath := filepath.Join(h.uploadDir, filename)
-	if err := c.SaveFile(fileHeader, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(dto.NewErrorResponse("upload_failed", "파일 저장에 실패했습니다"))
-	}
-
 	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
 		Status: "success",
-		Data: fiber.Map{
-			"url": "/uploads/images/" + filename,
-		},
+		Data:   fiber.Map{"url": url},
 	})
 }
