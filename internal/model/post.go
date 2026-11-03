@@ -26,7 +26,7 @@ type Post struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// VisibleTo - 공개된 발행 글은 누구나, 그 외(비공개·draft)는 작성자만 볼 수 있다. 목록 쿼리와 같은 기준.
+// VisibleTo 와 PublicPosts 는 같은 기준이어야 한다: 공개 발행 글은 누구나, 나머지는 작성자만 본다.
 func (p *Post) VisibleTo(userID *uint) bool {
 	if userID != nil && *userID == p.UserID {
 		return true
@@ -42,7 +42,6 @@ func (p *Post) OrderInSeries() int {
 	return *p.SeriesOrder
 }
 
-// PublicPosts 는 누구에게나 보이는 글(공개 + 발행)만 남기는 scope 다. VisibleTo 와 같은 기준이다.
 func PublicPosts(db *gorm.DB) *gorm.DB {
 	return db.Where("posts.is_public = ? AND posts.status = ?", true, PostStatusPublished)
 }

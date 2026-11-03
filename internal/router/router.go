@@ -57,7 +57,6 @@ func AppConfig(cfg *config.Config) fiber.Config {
 	}
 }
 
-// Setup wires middleware, services, and routes.
 func Setup(app *fiber.App, cfg *config.Config) {
 	// 다른 미들웨어의 panic 도 잡도록 맨 먼저 건다.
 	app.Use(middleware.PanicRecovery())

@@ -6,15 +6,10 @@ import (
 	"unicode"
 )
 
-// slugMaxRunes 는 슬러그가 가질 수 있는 최대 룬(코드 포인트) 수.
-// URL 길이를 합리적으로 유지하면서 한글 제목 대부분을 보존할 수 있는 값.
+// slugMaxRunes 는 URL 을 짧게 두면서 한글 제목 대부분을 담는 길이다.
 const slugMaxRunes = 60
 
-// Slugify 는 제목을 URL-safe 슬러그로 변환한다.
-// 보존: 영문 소문자/숫자/한글(가-힣)/하이픈.
-// 변환: 영문 대문자→소문자, 공백/언더스코어→하이픈, 연속 하이픈→단일 하이픈.
-// 제거: 그 외 모든 문자(특수문자/이모지/구두점).
-// 빈 결과(예: 제목이 전부 특수문자) 인 경우 호출 측에서 id 만 사용하도록 빈 문자열을 반환한다.
+// Slugify 는 글자·숫자만 소문자로 남기고 공백·_·- 를 하이픈 하나로 바꾼다. 남는 글자가 없으면 "" 다.
 func Slugify(title string) string {
 	var b strings.Builder
 	b.Grow(len(title))
@@ -33,8 +28,6 @@ func Slugify(title string) string {
 				b.WriteRune('-')
 				lastWasHyphen = true
 			}
-		default:
-			// 그 외 문자는 무시 (이모지, 구두점, URL-unsafe 등)
 		}
 	}
 

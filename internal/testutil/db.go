@@ -11,8 +11,7 @@ import (
 	"tolelom_api/internal/model"
 )
 
-// SetupDB returns a fresh in-memory SQLite DB with all models migrated.
-// 각 호출마다 독립된 DB — 테스트 간 격리 보장.
+// SetupDB returns a fresh in-memory SQLite DB per call, with all models migrated.
 func SetupDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

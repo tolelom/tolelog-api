@@ -41,20 +41,16 @@ type postConfig struct {
 	title        string
 }
 
-// PostOpt customizes a fixture post.
 type PostOpt func(*postConfig)
 
-// WithPrivate marks the post as private (is_public=false).
 func WithPrivate() PostOpt {
 	return func(c *postConfig) { c.forcePrivate = true }
 }
 
-// WithStatus sets the post status (e.g. "draft").
 func WithStatus(status model.PostStatus) PostOpt {
 	return func(c *postConfig) { c.status = status }
 }
 
-// WithTitle sets the post title.
 func WithTitle(title string) PostOpt {
 	return func(c *postConfig) { c.title = title }
 }
@@ -78,15 +74,13 @@ func MakePost(t *testing.T, db *gorm.DB, userID uint, opts ...PostOpt) *model.Po
 		Title:    cfg.title,
 		Content:  "본문",
 		UserID:   userID,
-		IsPublic: true, // always start true; override below if needed
+		IsPublic: true,
 		Status:   cfg.status,
 	}
 	if err := db.Create(p).Error; err != nil {
 		t.Fatalf("post fixture 생성 실패: %v", err)
 	}
 
-	// Apply explicit bool overrides via raw column update to bypass GORM's
-	// zero-value-omission behaviour for boolean columns with DB defaults.
 	if cfg.forcePrivate {
 		if err := db.Model(p).UpdateColumn("is_public", false).Error; err != nil {
 			t.Fatalf("is_public 업데이트 실패: %v", err)
@@ -97,7 +91,6 @@ func MakePost(t *testing.T, db *gorm.DB, userID uint, opts ...PostOpt) *model.Po
 	return p
 }
 
-// MakeComment creates a comment on a post.
 func MakeComment(t *testing.T, db *gorm.DB, postID, userID uint, content string) *model.Comment {
 	t.Helper()
 	c := &model.Comment{PostID: postID, UserID: userID, Content: content}
