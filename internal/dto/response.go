@@ -27,7 +27,6 @@ type AuthDataResponse struct {
 	AvatarURL    string `json:"avatar_url"`
 }
 
-// AuthDataFrom flattens an AuthResponse into the shape auth endpoints return.
 func AuthDataFrom(r *AuthResponse) AuthDataResponse {
 	return AuthDataResponse{
 		AccessToken:  r.AccessToken,

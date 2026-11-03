@@ -11,7 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ErrResponseSent is returned when the HTTP response has already been sent.
+// ErrResponseSent means the helper has already written the error response; the handler should just return nil.
 var ErrResponseSent = errors.New("response already sent")
 
 const (
@@ -20,12 +20,10 @@ const (
 	maxPageSize     = 100
 )
 
-// SetUserID records the authenticated user for RequireAuth and OptionalUserID.
 func SetUserID(c *fiber.Ctx, userID uint) {
 	c.Locals(userIDKey, userID)
 }
 
-// ParsePagination extracts page and pageSize from query parameters with defaults and bounds.
 func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 	page = c.QueryInt("page", 1)
 	pageSize = c.QueryInt("page_size", defaultPageSize)
@@ -38,13 +36,10 @@ func ParsePagination(c *fiber.Ctx) (page, pageSize int) {
 	return page, pageSize
 }
 
-// BindAndValidate parses the request body into T and validates it.
-// On failure it sends a JSON error response and returns ErrResponseSent.
 func BindAndValidate[T any](c *fiber.Ctx) (*T, error) {
 	return BindAndValidateWithMessage[T](c, "요청 형식이 잘못되었습니다")
 }
 
-// BindAndValidateWithMessage is BindAndValidate with a custom message for an unparsable body.
 func BindAndValidateWithMessage[T any](c *fiber.Ctx, malformedMessage string) (*T, error) {
 	var req T
 	if err := c.BodyParser(&req); err != nil {
@@ -58,8 +53,6 @@ func BindAndValidateWithMessage[T any](c *fiber.Ctx, malformedMessage string) (*
 	return &req, nil
 }
 
-// RequireAuth extracts the authenticated userID from Fiber locals.
-// On failure it sends a 401 response and returns ErrResponseSent.
 func RequireAuth(c *fiber.Ctx) (uint, error) {
 	userID, ok := c.Locals(userIDKey).(uint)
 	if !ok {
@@ -69,8 +62,6 @@ func RequireAuth(c *fiber.Ctx) (uint, error) {
 	return userID, nil
 }
 
-// ParseID parses a numeric path parameter as an ID.
-// On failure it sends a 400 response with the given error code and message and returns ErrResponseSent.
 func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
 	id, err := strconv.ParseUint(c.Params(param), 10, 32)
 	if err != nil {
@@ -80,7 +71,6 @@ func ParseID(c *fiber.Ctx, param, code, message string) (uint, error) {
 	return uint(id), nil
 }
 
-// OptionalUserID returns the authenticated userID set by OptionalAuthMiddleware, or nil for anonymous requests.
 func OptionalUserID(c *fiber.Ctx) *uint {
 	if userID, ok := c.Locals(userIDKey).(uint); ok {
 		return &userID
@@ -88,7 +78,6 @@ func OptionalUserID(c *fiber.Ctx) *uint {
 	return nil
 }
 
-// NewPagination creates a Pagination struct from page, pageSize, and total.
 func NewPagination(page, pageSize int, total int64) dto.Pagination {
 	return dto.Pagination{
 		Page:       page,
@@ -98,8 +87,7 @@ func NewPagination(page, pageSize int, total int64) dto.Pagination {
 	}
 }
 
-// SaveImageUpload stores the image in multipart field under dir and returns its public URL.
-// On failure it sends a JSON error response and returns ErrResponseSent.
+// SaveImageUpload returns the public URL of the stored image.
 func SaveImageUpload(c *fiber.Ctx, field, dir string) (string, error) {
 	fileHeader, err := c.FormFile(field)
 	if err != nil {

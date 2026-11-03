@@ -74,7 +74,6 @@ func (s *authService) RegisterUser(req *dto.RegisterRequest) (*dto.AuthResponse,
 	return s.issueTokens(u)
 }
 
-// normalizeUsername makes usernames case- and padding-insensitive for sign-up and login.
 func normalizeUsername(username string) string {
 	return strings.ToLower(strings.TrimSpace(username))
 }

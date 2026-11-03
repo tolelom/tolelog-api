@@ -31,7 +31,7 @@ func ErrorHandler(c *fiber.Ctx, err error) error {
 		"ip", c.IP(),
 	)
 
-	// 5xx 서버 오류만 외부 리포팅 (4xx 는 클라이언트 문제이므로 노이즈)
+	// 4xx 는 클라이언트 문제라 리포팅하면 잡음이다.
 	if code >= 500 {
 		utils.CaptureException(err, map[string]string{
 			"method": c.Method(),

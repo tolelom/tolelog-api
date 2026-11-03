@@ -41,9 +41,8 @@ func main() {
 	app := fiber.New(router.AppConfig(cfg))
 	router.Setup(app, cfg)
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	shutdownSignal := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignal, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		if err := app.Listen(":" + cfg.Port); err != nil {
@@ -54,7 +53,7 @@ func main() {
 
 	slog.Info("서버 시작", "port", cfg.Port)
 
-	<-quit
+	<-shutdownSignal
 	slog.Info("서버 종료 중...")
 
 	shutdownErr := app.Shutdown()
@@ -62,7 +61,6 @@ func main() {
 		slog.Error("서버 종료 실패", "error", shutdownErr)
 	}
 
-	// HTTP 서버 종료 후 DB 연결 정리
 	if err := cfg.CloseDatabase(); err != nil {
 		slog.Warn("DB 연결 종료 실패", "error", err)
 	} else {

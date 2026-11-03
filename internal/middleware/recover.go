@@ -9,9 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// PanicRecovery catches panics from downstream handlers, logs a structured
-// error with stack trace + request context, and responds with a 500 JSON body.
-// Should be registered as the first middleware so it wraps everything else.
 func PanicRecovery() fiber.Handler {
 	return func(c *fiber.Ctx) (err error) {
 		defer func() {
