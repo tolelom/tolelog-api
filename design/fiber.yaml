@@ -27,7 +27,7 @@ modules:
   router:
     tier: app
     path: internal/router
-    depends_on: [comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, user]
+    depends_on: [comment, config, docs, dto, feed, image, middleware, post, series, sitemap, tag, upload, user]
 
 enums:
   post_status:

@@ -14,16 +14,24 @@ import (
 	"tolelom_api/internal/series"
 	"tolelom_api/internal/sitemap"
 	"tolelom_api/internal/tag"
+	"tolelom_api/internal/upload"
 	"tolelom_api/internal/user"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"gorm.io/gorm"
 
 	_ "tolelom_api/docs"
 
 	fiberSwagger "github.com/swaggo/fiber-swagger"
+)
+
+const (
+	productionOrigins  = "https://tolelom.xyz, https://www.tolelom.xyz, https://blog.tolelom.xyz"
+	developmentOrigins = "http://localhost:5173, http://localhost:3000"
+	readinessTimeout   = 2 * time.Second
 )
 
 type HealthResponse struct {
@@ -36,12 +44,12 @@ type ReadinessResponse struct {
 	Database string `json:"database" example:"ok"`
 }
 
-// AppConfig 는 Fiber 앱 설정이다. Cloudflare → cloudflared → Traefik 뒤에서 c.IP() 가 실제 클라이언트가 되도록,
+// AppConfig 는 Cloudflare → cloudflared → Traefik 뒤에서 c.IP() 가 실제 클라이언트가 되도록,
 // 신뢰 프록시에서 온 요청만 CF-Connecting-IP 를 읽는다(헤더가 없거나 잘못되면 접속 주소를 쓴다).
 func AppConfig(cfg *config.Config) fiber.Config {
 	return fiber.Config{
 		ErrorHandler:            middleware.ErrorHandler,
-		BodyLimit:               5 * 1024 * 1024,
+		BodyLimit:               upload.MaxFileSize,
 		ProxyHeader:             "CF-Connecting-IP",
 		EnableTrustedProxyCheck: true,
 		TrustedProxies:          cfg.TrustedProxies,
@@ -51,213 +59,149 @@ func AppConfig(cfg *config.Config) fiber.Config {
 
 // Setup wires middleware, services, and routes.
 func Setup(app *fiber.App, cfg *config.Config) {
-	// Panic recovery: 모든 미들웨어/핸들러의 panic을 복구해야 하므로 가장 먼저 등록
+	// 다른 미들웨어의 panic 도 잡도록 맨 먼저 건다.
 	app.Use(middleware.PanicRecovery())
 
-	// CORS: 프로덕션 + 개발 환경 오리진 모두 허용
-	allowOrigins := "https://tolelom.xyz, https://www.tolelom.xyz, https://blog.tolelom.xyz"
+	allowOrigins := productionOrigins
 	if cfg.Environment == "development" {
-		allowOrigins += ", http://localhost:5173, http://localhost:3000"
+		allowOrigins += ", " + developmentOrigins
 	}
-
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowCredentials: false,
 	}))
-
-	// 보안 헤더 미들웨어
 	app.Use(middleware.SecurityHeaders())
-
-	// gzip 응답 압축
-	app.Use(compress.New(compress.Config{
-		Level: compress.LevelDefault,
-	}))
-
-	// 요청 로깅 미들웨어
+	app.Use(compress.New(compress.Config{Level: compress.LevelDefault}))
 	app.Use(middleware.RequestLogger())
 
-	// 정적 파일 서빙 (업로드된 이미지)
 	app.Static("/uploads", "./uploads")
 
-	// DI: 서비스 생성 → 핸들러에 주입
-	authService := user.NewAuthService(cfg.DB, cfg.JWTSecret)
-	userHandler := user.NewHandler(authService, cfg.UploadDir)
-
 	postService := post.NewService(cfg.DB)
+	userHandler := user.NewHandler(user.NewAuthService(cfg.DB, cfg.JWTSecret), cfg.UploadDir)
 	postHandler := post.NewHandler(postService)
-
-	commentService := comment.NewService(cfg.DB)
-	commentHandler := comment.NewHandler(commentService)
-
+	commentHandler := comment.NewHandler(comment.NewService(cfg.DB))
 	imageHandler := image.NewHandler(cfg.UploadDir)
-
-	seriesService := series.NewService(cfg.DB)
-	seriesHandler := series.NewHandler(seriesService)
-
-	tagService := tag.NewService(cfg.DB)
-	tagHandler := tag.NewHandler(tagService)
-
+	seriesHandler := series.NewHandler(series.NewService(cfg.DB))
+	tagHandler := tag.NewHandler(tag.NewService(cfg.DB))
 	feedHandler := feed.NewHandler(postService)
 	sitemapHandler := sitemap.NewHandler(sitemap.NewRepository(cfg.DB))
 
-	// Health check
-	// @Summary		Health Check
-	// @Description	서버의 health 상태를 반환합니다
-	// @Tags			Health
-	// @Produce		json
-	// @Success		200	{object}	HealthResponse
-	// @Router			/health [get]
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusOK).JSON(HealthResponse{
-			Status:  "ok",
-			Message: "Server is running",
-		})
-	})
-
-	// Readiness check: DB 연결 상태를 확인
-	// @Summary		Readiness Check
-	// @Description	DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
-	// @Tags			Health
-	// @Produce		json
-	// @Success		200	{object}	ReadinessResponse
-	// @Failure		503	{object}	ReadinessResponse
-	// @Router			/health/ready [get]
-	app.Get("/health/ready", func(c *fiber.Ctx) error {
-		resp := ReadinessResponse{Status: "ok", Database: "ok"}
-		httpStatus := fiber.StatusOK
-
-		ctx, cancel := context.WithTimeout(c.UserContext(), 2*time.Second)
-		defer cancel()
-
-		// 오류 원문(DB 호스트·포트 등)은 응답에 싣지 않고 서버 로그에만 남긴다.
-		if sqlDB, err := cfg.DB.DB(); err != nil {
-			slog.Error("readiness: database handle unavailable", "error", err)
-			resp.Database = "error"
-			resp.Status = "degraded"
-			httpStatus = fiber.StatusServiceUnavailable
-		} else if err := sqlDB.PingContext(ctx); err != nil {
-			slog.Error("readiness: database ping failed", "error", err)
-			resp.Database = "error"
-			resp.Status = "degraded"
-			httpStatus = fiber.StatusServiceUnavailable
-		}
-
-		return c.Status(httpStatus).JSON(resp)
-	})
-
-	// RSS 피드
+	app.Get("/health", health)
+	app.Get("/health/ready", readiness(cfg.DB))
 	app.Get("/feed", feedHandler.Feed)
-
-	// SEO 사이트맵
 	app.Get("/sitemap.xml", sitemapHandler.Sitemap)
 
-	// Swagger: 개발 환경에서만 노출
 	if cfg.Environment != "production" {
 		app.Get("/swagger/*", fiberSwagger.WrapHandler)
 	}
 
-	// api version 1
-	api := app.Group("/api/v1")
+	requireAuth := middleware.AuthMiddleware(cfg)
+	optionalAuth := middleware.OptionalAuthMiddleware(cfg)
 
-	// Auth routes (rate limiting 적용: 분당 10회)
-	authLimiter := limiter.New(limiter.Config{
-		Max:        10,
-		Expiration: 1 * time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
-		},
-	})
+	authLimiter := newRateLimiter(10, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+	searchLimiter := newRateLimiter(30, "검색 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+	// /upload 와 /users/avatar 가 한도를 함께 쓴다.
+	uploadLimiter := newRateLimiter(20, "업로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+	readLimiter := newRateLimiter(60, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+	commentLimiter := newRateLimiter(20, "댓글 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+
+	api := app.Group("/api/v1")
 
 	auth := api.Group("/auth")
 	auth.Post("/login", authLimiter, userHandler.Login)
 	auth.Post("/register", authLimiter, userHandler.Register)
 	auth.Post("/refresh", authLimiter, userHandler.RefreshToken)
-	auth.Post("/logout", middleware.AuthMiddleware(cfg), userHandler.Logout)
+	auth.Post("/logout", requireAuth, userHandler.Logout)
 
-	// Search rate limiting (분당 30회)
-	searchLimiter := limiter.New(limiter.Config{
-		Max:        30,
-		Expiration: 1 * time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "검색 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
-		},
-	})
-
-	// Upload rate limiting (분당 20회, /upload 와 /users/avatar 가 함께 쓴다)
-	uploadLimiter := limiter.New(limiter.Config{
-		Max:        20,
-		Expiration: 1 * time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "업로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
-		},
-	})
-
-	// Public read rate limiting (분당 60회)
-	readLimiter := limiter.New(limiter.Config{
-		Max:        60,
-		Expiration: 1 * time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
-		},
-	})
-
-	// Comment write rate limiting (분당 20회, 작성/수정/삭제)
-	commentLimiter := limiter.New(limiter.Config{
-		Max:        20,
-		Expiration: 1 * time.Minute,
-		LimitReached: func(c *fiber.Ctx) error {
-			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", "댓글 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."))
-		},
-	})
-
-	// Upload route (인증 필요 + rate limiting)
-	api.Post("/upload", uploadLimiter, middleware.AuthMiddleware(cfg), imageHandler.Upload)
-
-	// Drafts route (인증 필요)
-	api.Get("/drafts", middleware.AuthMiddleware(cfg), postHandler.GetDrafts)
-
-	// Tag routes
+	api.Post("/upload", uploadLimiter, requireAuth, imageHandler.Upload)
+	api.Get("/drafts", requireAuth, postHandler.GetDrafts)
 	api.Get("/tags", readLimiter, tagHandler.GetTags)
 
-	// Post routes
 	posts := api.Group("/posts")
-	posts.Get("", readLimiter, postHandler.GetPublicPosts)                                                 // 공개 글 목록
-	posts.Get("/search", searchLimiter, postHandler.SearchPosts)                                           // 글 검색 (rate limiting)
-	posts.Get("/:id", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetPost)            // 글 상세 조회 (선택적 인증)
-	posts.Post("", middleware.AuthMiddleware(cfg), postHandler.CreatePost)                                 // 글 생성 (인증 필요)
-	posts.Put("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)                              // 글 수정 PUT (인증 필요)
-	posts.Patch("/:id", middleware.AuthMiddleware(cfg), postHandler.UpdatePost)                            // 글 수정 PATCH (인증 필요)
-	posts.Delete("/:id", middleware.AuthMiddleware(cfg), postHandler.DeletePost)                           // 글 삭제 (인증 필요)
-	posts.Post("/:id/like", middleware.AuthMiddleware(cfg), postHandler.ToggleLike)                        // 좋아요 토글 (인증 필요)
-	posts.Get("/:id/like", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetLikeStatus) // 좋아요 상태 조회
+	posts.Get("", readLimiter, postHandler.GetPublicPosts)
+	posts.Get("/search", searchLimiter, postHandler.SearchPosts)
+	posts.Get("/:id", readLimiter, optionalAuth, postHandler.GetPost)
+	posts.Post("", requireAuth, postHandler.CreatePost)
+	posts.Put("/:id", requireAuth, postHandler.UpdatePost)
+	posts.Patch("/:id", requireAuth, postHandler.UpdatePost)
+	posts.Delete("/:id", requireAuth, postHandler.DeletePost)
+	posts.Post("/:id/like", requireAuth, postHandler.ToggleLike)
+	posts.Get("/:id/like", readLimiter, optionalAuth, postHandler.GetLikeStatus)
+	posts.Get("/:id/comments", readLimiter, optionalAuth, commentHandler.GetComments)
+	posts.Post("/:id/comments", commentLimiter, requireAuth, commentHandler.CreateComment)
+	posts.Put("/:id/comments/:comment_id", commentLimiter, requireAuth, commentHandler.UpdateComment)
+	posts.Delete("/:id/comments/:comment_id", commentLimiter, requireAuth, commentHandler.DeleteComment)
+	posts.Get("/:id/series-nav", readLimiter, optionalAuth, seriesHandler.GetSeriesNavigation)
 
-	// Comment routes
-	posts.Get("/:id/comments", readLimiter, middleware.OptionalAuthMiddleware(cfg), commentHandler.GetComments)             // 댓글 목록 조회
-	posts.Post("/:id/comments", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.CreateComment)               // 댓글 작성 (인증 필요, rate limiting)
-	posts.Put("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.UpdateComment)    // 댓글 수정 (인증 필요, rate limiting)
-	posts.Delete("/:id/comments/:comment_id", commentLimiter, middleware.AuthMiddleware(cfg), commentHandler.DeleteComment) // 댓글 삭제 (인증 필요, rate limiting)
-
-	// Series navigation (under posts)
-	posts.Get("/:id/series-nav", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetSeriesNavigation)
-
-	// Series routes
 	seriesGroup := api.Group("/series")
-	seriesGroup.Get("/:id", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetSeries)
-	seriesGroup.Post("", middleware.AuthMiddleware(cfg), seriesHandler.CreateSeries)
-	seriesGroup.Put("/:id", middleware.AuthMiddleware(cfg), seriesHandler.UpdateSeries)
-	seriesGroup.Delete("/:id", middleware.AuthMiddleware(cfg), seriesHandler.DeleteSeries)
-	seriesGroup.Post("/:id/posts", middleware.AuthMiddleware(cfg), seriesHandler.AddPostToSeries)
-	seriesGroup.Delete("/:id/posts/:post_id", middleware.AuthMiddleware(cfg), seriesHandler.RemovePostFromSeries)
-	seriesGroup.Put("/:id/reorder", middleware.AuthMiddleware(cfg), seriesHandler.ReorderPosts)
+	seriesGroup.Get("/:id", readLimiter, optionalAuth, seriesHandler.GetSeries)
+	seriesGroup.Post("", requireAuth, seriesHandler.CreateSeries)
+	seriesGroup.Put("/:id", requireAuth, seriesHandler.UpdateSeries)
+	seriesGroup.Delete("/:id", requireAuth, seriesHandler.DeleteSeries)
+	seriesGroup.Post("/:id/posts", requireAuth, seriesHandler.AddPostToSeries)
+	seriesGroup.Delete("/:id/posts/:post_id", requireAuth, seriesHandler.RemovePostFromSeries)
+	seriesGroup.Put("/:id/reorder", requireAuth, seriesHandler.ReorderPosts)
 
-	// User routes
 	users := api.Group("/users")
-	users.Delete("/me", middleware.AuthMiddleware(cfg), userHandler.DeleteMe)                                       // 계정 삭제 (인증 필요)
-	users.Put("/password", middleware.AuthMiddleware(cfg), userHandler.ChangePassword)                              // 비밀번호 변경 (인증 필요)
-	users.Put("/avatar", uploadLimiter, middleware.AuthMiddleware(cfg), userHandler.UploadAvatar)                   // 프로필 이미지 업로드 (인증 필요)
-	users.Get("/:user_id", readLimiter, userHandler.GetProfile)                                                     // 사용자 프로필
-	users.Get("/:user_id/series", readLimiter, middleware.OptionalAuthMiddleware(cfg), seriesHandler.GetUserSeries) // 사용자 시리즈 목록
-	users.Get("/:user_id/posts", readLimiter, middleware.OptionalAuthMiddleware(cfg), postHandler.GetUserPosts)     // 사용자 글 목록 (선택적 인증)
+	users.Delete("/me", requireAuth, userHandler.DeleteMe)
+	users.Put("/password", requireAuth, userHandler.ChangePassword)
+	users.Put("/avatar", uploadLimiter, requireAuth, userHandler.UploadAvatar)
+	users.Get("/:user_id", readLimiter, userHandler.GetProfile)
+	users.Get("/:user_id/series", readLimiter, optionalAuth, seriesHandler.GetUserSeries)
+	users.Get("/:user_id/posts", readLimiter, optionalAuth, postHandler.GetUserPosts)
+}
+
+// newRateLimiter allows maxPerMinute requests per client IP.
+func newRateLimiter(maxPerMinute int, message string) fiber.Handler {
+	return limiter.New(limiter.Config{
+		Max:        maxPerMinute,
+		Expiration: time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(dto.NewErrorResponse("rate_limit_exceeded", message))
+		},
+	})
+}
+
+// @Summary		Health Check
+// @Description	서버의 health 상태를 반환합니다
+// @Tags			Health
+// @Produce		json
+// @Success		200	{object}	HealthResponse
+// @Router			/health [get]
+func health(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusOK).JSON(HealthResponse{
+		Status:  "ok",
+		Message: "Server is running",
+	})
+}
+
+// @Summary		Readiness Check
+// @Description	DB 연결 상태를 확인합니다. 의존성이 실패하면 503을 반환합니다.
+// @Tags			Health
+// @Produce		json
+// @Success		200	{object}	ReadinessResponse
+// @Failure		503	{object}	ReadinessResponse
+// @Router			/health/ready [get]
+func readiness(db *gorm.DB) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		ctx, cancel := context.WithTimeout(c.UserContext(), readinessTimeout)
+		defer cancel()
+
+		// 오류 원문(DB 호스트·포트 등)은 응답에 싣지 않고 서버 로그에만 남긴다.
+		if err := pingDatabase(ctx, db); err != nil {
+			slog.Error("readiness: database unavailable", "error", err)
+			return c.Status(fiber.StatusServiceUnavailable).JSON(ReadinessResponse{Status: "degraded", Database: "error"})
+		}
+		return c.Status(fiber.StatusOK).JSON(ReadinessResponse{Status: "ok", Database: "ok"})
+	}
+}
+
+func pingDatabase(ctx context.Context, db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.PingContext(ctx)
 }
