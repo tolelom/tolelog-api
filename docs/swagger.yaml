@@ -43,6 +43,7 @@ definitions:
         maxLength: 128
         minLength: 6
         type: string
+        x-max-bytes: "72"
     required:
     - current_password
     - new_password
@@ -126,6 +127,7 @@ definitions:
       tags:
         maxLength: 500
         type: string
+        x-tag-max-runes: "50"
       title:
         maxLength: 255
         minLength: 1
@@ -329,6 +331,7 @@ definitions:
         maxLength: 128
         minLength: 6
         type: string
+        x-max-bytes: "72"
       username:
         maxLength: 20
         minLength: 4
@@ -525,6 +528,7 @@ definitions:
       tags:
         maxLength: 500
         type: string
+        x-tag-max-runes: "50"
       title:
         maxLength: 255
         minLength: 1
@@ -1327,8 +1331,10 @@ paths:
     get:
       description: 제목 또는 본문에서 키워드로 공개 글을 검색합니다
       parameters:
-      - description: 검색어 (2~100자)
+      - description: 검색어 (앞뒤 공백을 뺀 2~100자)
         in: query
+        maxLength: 100
+        minLength: 2
         name: q
         required: true
         type: string

@@ -17,7 +17,7 @@ type CreatePostRequest struct {
 	Title    string `json:"title" validate:"required,min=1,max=255"`
 	Content  string `json:"content" validate:"required,min=1,max=500000"`
 	IsPublic bool   `json:"is_public,omitempty"`
-	Tags     string `json:"tags,omitempty" validate:"max=500"`
+	Tags     string `json:"tags,omitempty" validate:"max=500" extensions:"x-tag-max-runes=50"`
 	Status   string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
 
@@ -25,7 +25,7 @@ type UpdatePostRequest struct {
 	Title    *string `json:"title,omitempty" validate:"omitempty,min=1,max=255"`
 	Content  *string `json:"content,omitempty" validate:"omitempty,min=1,max=500000"`
 	IsPublic *bool   `json:"is_public,omitempty"`
-	Tags     *string `json:"tags,omitempty" validate:"omitempty,max=500"`
+	Tags     *string `json:"tags,omitempty" validate:"omitempty,max=500" extensions:"x-tag-max-runes=50"`
 	Status   *string `json:"status,omitempty" validate:"omitempty,oneof=draft published"`
 }
 

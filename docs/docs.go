@@ -447,8 +447,10 @@ const docTemplate = `{
                 "summary": "글 검색",
                 "parameters": [
                     {
+                        "maxLength": 100,
+                        "minLength": 2,
                         "type": "string",
-                        "description": "검색어 (2~100자)",
+                        "description": "검색어 (앞뒤 공백을 뺀 2~100자)",
                         "name": "q",
                         "in": "query",
                         "required": true
@@ -2439,7 +2441,8 @@ const docTemplate = `{
                 "new_password": {
                     "type": "string",
                     "maxLength": 128,
-                    "minLength": 6
+                    "minLength": 6,
+                    "x-max-bytes": "72"
                 }
             }
         },
@@ -2556,7 +2559,8 @@ const docTemplate = `{
                 },
                 "tags": {
                     "type": "string",
-                    "maxLength": 500
+                    "maxLength": 500,
+                    "x-tag-max-runes": "50"
                 },
                 "title": {
                     "type": "string",
@@ -2846,7 +2850,8 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "maxLength": 128,
-                    "minLength": 6
+                    "minLength": 6,
+                    "x-max-bytes": "72"
                 },
                 "username": {
                     "type": "string",
@@ -3127,7 +3132,8 @@ const docTemplate = `{
                 },
                 "tags": {
                     "type": "string",
-                    "maxLength": 500
+                    "maxLength": 500,
+                    "x-tag-max-runes": "50"
                 },
                 "title": {
                     "type": "string",
