@@ -20,7 +20,6 @@ func NewHandler(authService AuthService, uploadDir string) *Handler {
 	return &Handler{authService: authService, uploadDir: uploadDir}
 }
 
-// Register godoc
 // @Summary      회원가입
 // @Description  새로운 사용자를 등록합니다
 // @Tags         Auth
@@ -52,7 +51,6 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	})
 }
 
-// Login godoc
 // @Summary      로그인
 // @Description  사용자명과 비밀번호로 로그인합니다
 // @Tags         Auth
@@ -84,7 +82,6 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 	})
 }
 
-// RefreshToken godoc
 // @Summary      토큰 갱신
 // @Description  리프레시 토큰으로 새로운 액세스 토큰과 리프레시 토큰을 발급합니다
 // @Tags         Auth
@@ -116,7 +113,6 @@ func (h *Handler) RefreshToken(c *fiber.Ctx) error {
 	})
 }
 
-// GetProfile godoc
 // @Summary      유저 프로필 조회
 // @Description  유저 ID로 프로필 정보를 조회합니다
 // @Tags         Users
@@ -147,7 +143,6 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 	})
 }
 
-// UploadAvatar godoc
 // @Summary      프로필 이미지 업로드
 // @Description  프로필 이미지를 업로드합니다 (최대 5MB, jpeg/png/gif/webp)
 // @Tags         Users
@@ -183,7 +178,6 @@ func (h *Handler) UploadAvatar(c *fiber.Ctx) error {
 	})
 }
 
-// ChangePassword godoc
 // @Summary      비밀번호 변경
 // @Description  현재 비밀번호를 확인한 후 새 비밀번호로 변경합니다. 다른 기기의 리프레시 토큰은 무효가 되고, 응답의 새 토큰 쌍으로 이 기기 세션을 이어 간다
 // @Tags         Users
@@ -226,7 +220,6 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	})
 }
 
-// Logout godoc
 // @Summary      로그아웃
 // @Description  리프레시 토큰을 무효화합니다
 // @Tags         Auth
@@ -250,7 +243,6 @@ func (h *Handler) Logout(c *fiber.Ctx) error {
 	})
 }
 
-// DeleteMe godoc
 // @Summary      계정 삭제
 // @Description  현재 로그인한 사용자의 계정과 모든 데이터를 삭제합니다
 // @Tags         Users

@@ -44,7 +44,6 @@ func NewHandler(repo Repository) *Handler {
 	return &Handler{repo: repo}
 }
 
-// Sitemap godoc
 // @Summary      XML 사이트맵
 // @Description  공개 글과 시리즈의 URL을 XML 사이트맵 형식으로 반환합니다
 // @Tags         SEO
