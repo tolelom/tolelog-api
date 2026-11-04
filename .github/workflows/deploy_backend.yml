@@ -21,7 +21,7 @@ jobs:
           go-version: '1.27.x'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           # latest 는 새 릴리스가 나오는 날 코드 변경 없이 main CI 를 깨뜨릴 수 있어 고정한다.
           version: v2.14.0
