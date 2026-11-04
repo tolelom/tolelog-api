@@ -18,7 +18,7 @@ jobs:
       - name: Go 설정
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.27.x'
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
@@ -44,7 +44,7 @@ jobs:
       - name: Go 설정
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.27.x'
 
       - name: 테스트 실행 (커버리지 포함)
         run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
@@ -87,7 +87,7 @@ jobs:
       - name: Go 설정
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.27.x'
 
       - name: 바이너리 빌드
         run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o server ./cmd/server
