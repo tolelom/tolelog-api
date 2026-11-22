@@ -29,11 +29,11 @@ go run ./cmd/server
 
 | 접속 | 주소 |
 |---|---|
-| API | http://localhost:8080/api/v1 |
-| Swagger UI(개발 환경) | http://localhost:8080/swagger/ |
-| 헬스 체크 | http://localhost:8080/health |
-| RSS 피드 | http://localhost:8080/feed |
-| 사이트맵 | http://localhost:8080/sitemap.xml |
+| API | http://localhost:8000/api/v1 |
+| Swagger UI(개발 환경) | http://localhost:8000/swagger/ |
+| 헬스 체크 | http://localhost:8000/health |
+| RSS 피드 | http://localhost:8000/feed |
+| 사이트맵 | http://localhost:8000/sitemap.xml |
 
 설정은 `.env`에서 읽습니다. 값을 비우면 localhost:3306 MySQL의 `blog` DB에 붙고, 시작할 때 테이블을 자동으로 만듭니다. 로컬 tolelog-web은 API를 localhost:3000으로 보므로 함께 띄울 때는 `PORT=3000`으로 둡니다.
 

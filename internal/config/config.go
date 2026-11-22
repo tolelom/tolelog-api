@@ -59,7 +59,7 @@ func LoadConfig() (*Config, error) {
 		DBPassword:     getEnv("DB_PASSWORD", "root"),
 		DBName:         getEnv("DB_NAME", "blog"),
 		JWTSecret:      jwtSecret,
-		Port:           getEnv("PORT", "8080"),
+		Port:           getEnv("PORT", "8000"),
 		Environment:    environment,
 		UploadDir:      getEnv("UPLOAD_DIR", defaultUploadDir),
 		TrustedProxies: splitList(getEnv("TRUSTED_PROXIES", "172.16.0.0/12")),
