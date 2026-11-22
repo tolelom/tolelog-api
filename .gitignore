@@ -11,9 +11,6 @@
 # Binaries for programs and plugins
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
 
 # Test binary, built with `go test -c`
 *.test
@@ -29,7 +26,6 @@ go.work
 
 ### macOS ###
 # General
-.DS_Store
 .AppleDouble
 .LSOverride
 
@@ -87,8 +83,7 @@ $RECYCLE.BIN/
 *.lnk
 
 ### IDE ###
-.idea/
 .claude/
 
-# End of https://www.toptal.com/developers/gitignore/api/windows,macos,go,dotenvcover.out
+# End of https://www.toptal.com/developers/gitignore/api/windows,macos,go,dotenv
 PROJECT_REVIEW.md
