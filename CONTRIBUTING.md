@@ -20,7 +20,7 @@ swag init -g cmd/server/main.go --requiredByDefault   # Swagger 문서 생성
 
 ## 배포
 
-`main`에 push하면 GitHub Actions(`.github/workflows/deploy_backend.yml`)가 lint, 테스트, linux/arm64 빌드를 거쳐 이미지 `ghcr.io/tolelom/tolelom-api`를 `latest`, `main`, 커밋 SHA 태그로 올립니다. workflow는 이미지 push에서 끝나고, Renovate가 `server-config` 저장소의 이미지 digest를 올리면 git-sync가 서버에 반영합니다.
+`main`에 push하면 GitHub Actions(`.github/workflows/ci.yml`)가 lint, 테스트, linux/arm64 빌드를 거쳐 이미지 `ghcr.io/tolelom/tolelom-api`를 `latest`, `main`, 커밋 SHA 태그로 올립니다. workflow는 이미지 push에서 끝나고, Renovate가 `server-config` 저장소의 이미지 digest를 올리면 git-sync가 서버에 반영합니다.
 
 - 운영(`ENVIRONMENT=production`)에서는 `JWT_SECRET`이 없으면 서버가 시작하지 않고, Swagger UI를 열지 않습니다.
 - 이미지는 8000 포트를 열고 `/health`로 헬스 체크를 합니다.
